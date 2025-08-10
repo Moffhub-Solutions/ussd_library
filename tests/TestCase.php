@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Moffhub\Ussd\Tests;
 
+use Moffhub\Ussd\UssdServiceProvider;
 use Orchestra\Testbench\TestCase as BaseTestCase;
-use UssdServiceProvider;
 
 abstract class TestCase extends BaseTestCase
 {

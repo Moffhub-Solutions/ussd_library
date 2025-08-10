@@ -1,5 +1,9 @@
 <?php
 
+declare(strict_types=1);
+
+namespace Moffhub\Ussd;
+
 use Illuminate\Support\ServiceProvider;
 
 class UssdServiceProvider extends ServiceProvider
