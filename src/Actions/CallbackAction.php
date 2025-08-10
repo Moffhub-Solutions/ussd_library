@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Moffhub\Ussd\Actions;
 
 
+use Closure;
 use Moffhub\Ussd\Interfaces\ActionInterface;
 use Moffhub\Ussd\UssdFramework;
 use Moffhub\Ussd\UssdResponse;
@@ -12,18 +13,15 @@ use Moffhub\Ussd\UssdSession;
 
 class CallbackAction implements ActionInterface
 {
-    /** @var ?callable */
-    protected $callback;
+    protected ?Closure $callback;
 
-    /**
-     * @param callable $callback The callback function to execute
-     */
-    public function __construct(callable $callback)
+
+    public function __construct(?Closure $callback)
     {
         $this->callback = $callback;
     }
 
-    public function execute(string $input, UssdSession $session, UssdFramework $framework): UssdResponse
+    public function execute(string|null $input, UssdSession $session, UssdFramework $framework): UssdResponse
     {
         if (is_callable($this->callback)) {
             $result = call_user_func($this->callback, $input, $session, $framework);
