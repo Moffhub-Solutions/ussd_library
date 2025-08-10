@@ -12,7 +12,7 @@ trait GlobalNavigationTrait
 {
     protected function addGlobalNavigation(string $message, UssdSession $session): string
     {
-        if (!$this->isGlobalNavigationEnabled()) {
+        if (! $this->isGlobalNavigationEnabled()) {
             return $message;
         }
 
@@ -64,7 +64,7 @@ trait GlobalNavigationTrait
         $navString = implode($separator, $navOptions);
 
         $showSeparator = $navConfig['show_separator'] ?? true;
-        if ($showSeparator && !empty($navString)) {
+        if ($showSeparator && ! empty($navString)) {
             return "---\n".$navString;
         }
 
@@ -101,7 +101,7 @@ trait GlobalNavigationTrait
      */
     protected function processGlobalNavigation(string $input, UssdSession $session): ?UssdResponse
     {
-        if (!$this->isGlobalNavigationEnabled()) {
+        if (! $this->isGlobalNavigationEnabled()) {
             return null;
         }
 
@@ -172,7 +172,7 @@ trait GlobalNavigationTrait
     protected function navigateTo($menuName, $data = []): bool
     {
         try {
-            if (!isset($this->framework)) {
+            if (! isset($this->framework)) {
                 return false;
             }
 
@@ -188,7 +188,7 @@ trait GlobalNavigationTrait
     protected function goBack(): bool
     {
         try {
-            if (!isset($this->framework)) {
+            if (! isset($this->framework)) {
                 return false;
             }
 
@@ -222,8 +222,8 @@ trait GlobalNavigationTrait
         }
 
         $globalNav = $this->buildNavigationText($session);
-        if (!empty($globalNav)) {
-            if (!empty($navOptions)) {
+        if (! empty($globalNav)) {
+            if (! empty($navOptions)) {
                 $navOptions[] = $globalNav;
             } else {
                 return $globalNav;

@@ -7,6 +7,7 @@ use Moffhub\Ussd\UssdFramework;
 class UssdBuilder
 {
     protected UssdFramework $framework;
+
     protected array $menus = [];
 
     public function __construct(?UssdFramework $framework = null)
@@ -20,6 +21,7 @@ class UssdBuilder
     public static function create(array $config = []): self
     {
         $framework = new UssdFramework($config);
+
         return new static($framework);
     }
 
@@ -43,6 +45,7 @@ class UssdBuilder
     public function simpleMenu(string $name, string $title, array $options = [], array $actions = []): static
     {
         $this->menus[$name] = new SimpleMenu($title, $options, $actions);
+
         return $this;
     }
 
@@ -57,6 +60,7 @@ class UssdBuilder
         $menu->setOnComplete($onComplete);
 
         $this->menus[$name] = $menu;
+
         return $this;
     }
 
@@ -72,6 +76,7 @@ class UssdBuilder
         $menu->enableFeatures(['pagination', 'search', 'validation', 'context_snapshots']);
 
         $this->menus[$name] = $menu;
+
         return $this;
     }
 
@@ -87,6 +92,7 @@ class UssdBuilder
         }
 
         $this->menus[$name] = $formBuilder->build();
+
         return $this;
     }
 
@@ -96,6 +102,7 @@ class UssdBuilder
     public function paginatedMenu(string $name, string $title, mixed $dataProvider, array $options = []): static
     {
         $this->menus[$name] = new PaginatedMenu($title, $dataProvider, $options);
+
         return $this;
     }
 
@@ -106,6 +113,7 @@ class UssdBuilder
     {
         $options['searchable'] = true;
         $this->menus[$name] = new SearchablePaginatedMenu($title, $dataProvider, $options);
+
         return $this;
     }
 
@@ -116,6 +124,7 @@ class UssdBuilder
     {
         $menu = new ConditionalMenu($defaultMenu);
         $this->menus[$name] = $menu;
+
         return new ConditionalMenuBuilder($menu, $this);
     }
 
@@ -125,6 +134,7 @@ class UssdBuilder
     public function wizardMenu(string $name, string $title, array $steps = [], ?callable $onComplete = null): static
     {
         $this->menus[$name] = new WizardMenu($title, $steps, $onComplete);
+
         return $this;
     }
 
@@ -135,6 +145,7 @@ class UssdBuilder
     {
         $menu = new UssdMenu($title);
         $this->menus[$name] = $menu;
+
         return new UnifiedMenuBuilder($menu, $this);
     }
 
@@ -144,6 +155,7 @@ class UssdBuilder
     public function customMenu(string $name, UssdMenuInterface $menu): static
     {
         $this->menus[$name] = $menu;
+
         return $this;
     }
 
@@ -153,6 +165,7 @@ class UssdBuilder
     public function onBeforeProcess(callable $callback): static
     {
         $this->framework->addHook('before_process', $callback);
+
         return $this;
     }
 
@@ -162,6 +175,7 @@ class UssdBuilder
     public function onAfterProcess(callable $callback): static
     {
         $this->framework->addHook('after_process', $callback);
+
         return $this;
     }
 
@@ -171,6 +185,7 @@ class UssdBuilder
     public function onError(callable $callback): static
     {
         $this->framework->addHook('on_error', $callback);
+
         return $this;
     }
 
@@ -180,6 +195,7 @@ class UssdBuilder
     public function onSessionRecovery(callable $callback): static
     {
         $this->framework->addHook('session_recovery', $callback);
+
         return $this;
     }
 
@@ -250,6 +266,7 @@ class UssdBuilder
     public function build(): UssdFramework
     {
         $this->framework->registerMenus($this->menus);
+
         return $this->framework;
     }
 

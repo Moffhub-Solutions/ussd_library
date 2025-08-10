@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 namespace Moffhub\Ussd\Menus;
+
 use Moffhub\Ussd\Interfaces\ActionInterface;
 use Moffhub\Ussd\UssdResponse;
 use Moffhub\Ussd\UssdSession;
@@ -10,8 +11,11 @@ use Moffhub\Ussd\UssdSession;
 class WizardMenu extends UssdMenu
 {
     protected string $title;
+
     protected mixed $steps = [];
+
     protected int $currentStepIndex = 0;
+
     protected $onComplete;
 
     public function __construct($title, $steps = [], $onComplete = null)
@@ -47,7 +51,7 @@ class WizardMenu extends UssdMenu
         $currentStepIndex = $menuData['current_step'] ?? 0;
         $stepNames = array_keys($this->steps);
 
-        if (!isset($stepNames[$currentStepIndex])) {
+        if (! isset($stepNames[$currentStepIndex])) {
             return $this->completeWizard($session);
         }
 

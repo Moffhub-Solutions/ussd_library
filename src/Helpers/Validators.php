@@ -12,7 +12,7 @@ class Validators
     public static function required(?string $message = 'This field is required'): Closure
     {
         return function ($input) use ($message) {
-            return !empty(trim($input)) ? true : $message;
+            return ! empty(trim($input)) ? true : $message;
         };
     }
 
@@ -92,7 +92,7 @@ class Validators
     {
         return function ($input) use ($message, $minAge) {
             $date = DateTime::createFromFormat('Y-m-d', $input);
-            if (!$date || $date->format('Y-m-d') !== $input) {
+            if (! $date || $date->format('Y-m-d') !== $input) {
                 return $message;
             }
 

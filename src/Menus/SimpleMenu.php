@@ -11,11 +11,14 @@ use Moffhub\Ussd\UssdSession;
 class SimpleMenu extends UssdMenu
 {
     protected string $title;
-    protected array $options = [];
-    protected array $actions = [];
-    protected string|null $footer;
 
-    public function __construct(string $title, array $options = [], array $actions = [], string|null $footer = null)
+    protected array $options = [];
+
+    protected array $actions = [];
+
+    protected ?string $footer;
+
+    public function __construct(string $title, array $options = [], array $actions = [], ?string $footer = null)
     {
         parent::__construct($title);
         $this->title = $title;
@@ -45,7 +48,7 @@ class SimpleMenu extends UssdMenu
         if ($step === 0) {
             $input = trim($input);
 
-            if (!isset($this->options[$input])) {
+            if (! isset($this->options[$input])) {
                 return UssdResponse::continue("Invalid option. Please try again.\n".$this->showInitial($session)->getMessage());
             }
 

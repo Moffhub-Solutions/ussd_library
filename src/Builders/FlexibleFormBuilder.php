@@ -7,8 +7,11 @@ use Moffhub\Ussd\Menus\UssdMenu;
 class FlexibleFormBuilder
 {
     protected string $title;
+
     protected array $fields = [];
-    protected  $onComplete;
+
+    protected $onComplete;
+
     protected array $config = [];
 
     public function __construct(string $title, ?callable $onComplete = null)
@@ -23,6 +26,7 @@ class FlexibleFormBuilder
             'type' => 'text',
             'prompt' => $prompt,
         ], $options);
+
         return $this;
     }
 
@@ -32,6 +36,7 @@ class FlexibleFormBuilder
             'type' => 'number',
             'prompt' => $prompt,
         ], $options);
+
         return $this;
     }
 
@@ -41,6 +46,7 @@ class FlexibleFormBuilder
             'type' => 'date',
             'prompt' => $prompt,
         ], $options);
+
         return $this;
     }
 
@@ -51,6 +57,7 @@ class FlexibleFormBuilder
             'prompt' => $prompt,
             'options' => $options,
         ], $config);
+
         return $this;
     }
 
@@ -62,6 +69,7 @@ class FlexibleFormBuilder
             'data_provider' => $dataProvider,
             'items_per_page' => 5,
         ], $config);
+
         return $this;
     }
 
@@ -74,6 +82,7 @@ class FlexibleFormBuilder
             'search_fields' => $searchFields,
             'items_per_page' => 5,
         ], $config);
+
         return $this;
     }
 
@@ -84,6 +93,7 @@ class FlexibleFormBuilder
             'prompt' => $prompt,
             'condition' => $condition,
         ], $options);
+
         return $this;
     }
 
@@ -92,6 +102,7 @@ class FlexibleFormBuilder
         if (isset($this->fields[$fieldName])) {
             $this->fields[$fieldName]['validator'] = $validator;
         }
+
         return $this;
     }
 
@@ -100,24 +111,28 @@ class FlexibleFormBuilder
         if (isset($this->fields[$fieldName])) {
             $this->fields[$fieldName]['optional'] = $optional;
         }
+
         return $this;
     }
 
     public function enableFieldValidation(): self
     {
         $this->config['enable_validation'] = true;
+
         return $this;
     }
 
     public function enableProgressTracking(): self
     {
         $this->config['show_progress'] = true;
+
         return $this;
     }
 
     public function enableContextPreservation(): self
     {
         $this->config['preserve_context'] = true;
+
         return $this;
     }
 

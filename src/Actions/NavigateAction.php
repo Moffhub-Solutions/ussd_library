@@ -12,12 +12,13 @@ use Moffhub\Ussd\UssdSession;
 class NavigateAction implements ActionInterface
 {
     protected string $menuName;
+
     /** @var array<string, mixed> */
     protected array $data;
 
     /**
-     * @param string $menuName The name of the menu to navigate to
-     * @param array<string, mixed> $data Data to pass to the menu
+     * @param  string  $menuName  The name of the menu to navigate to
+     * @param  array<string, mixed>  $data  Data to pass to the menu
      */
     public function __construct(string $menuName, array $data = [])
     {

@@ -10,16 +10,22 @@ use Illuminate\Support\Facades\Log;
 
 class UssdSession
 {
-
     protected string $sessionId;
+
     protected string $phoneNumber;
+
     protected array $data;
+
     protected array $config;
+
     protected string $cacheKey;
 
     protected string $status = 'new'; // new, active, grace_period, recovered, expired
+
     protected ?array $recoveryContext = null;
+
     protected Carbon $lastAccessTime;
+
     protected array $sessionMetrics = [];
 
     public function __construct(Request $request, array $config = [])
@@ -27,7 +33,7 @@ class UssdSession
         $this->sessionId = $request->sessionId ?? uniqid('ussd_', true);
         $this->phoneNumber = $request->phoneNumber ?? $request->input('phoneNumber') ?? '';
         $this->config = $config;
-        $this->cacheKey = ($this->config['session_prefix'] ?? 'ussd_session_') . $this->phoneNumber;
+        $this->cacheKey = ($this->config['session_prefix'] ?? 'ussd_session_').$this->phoneNumber;
         $this->lastAccessTime = Carbon::now();
 
         $this->loadOrInitializeSession();
@@ -110,7 +116,7 @@ class UssdSession
         ];
 
         foreach ($defaultEnhancedData as $key => $value) {
-            if (!isset($this->data[$key])) {
+            if (! isset($this->data[$key])) {
                 $this->data[$key] = $value;
             }
         }
@@ -197,6 +203,7 @@ class UssdSession
                 'current_step' => $currentStep,
                 'max_steps' => $maxSteps,
             ]);
+
             return $currentStep;
         }
 
@@ -308,8 +315,9 @@ class UssdSession
     {
         if ($useSnapshot) {
             $snapshots = $this->getContextSnapshots();
-            if (!empty($snapshots)) {
+            if (! empty($snapshots)) {
                 $latestSnapshot = end($snapshots);
+
                 return $this->restoreFromSnapshot($latestSnapshot);
             }
         }
@@ -320,6 +328,7 @@ class UssdSession
             Log::debug('UnifiedUssdSession: No history to go back to', [
                 'phone' => $this->phoneNumber,
             ]);
+
             return false;
         }
 
@@ -348,7 +357,8 @@ class UssdSession
     public function canGoBack(): bool
     {
         $history = $this->get('menu_history', []);
-        return !empty($history);
+
+        return ! empty($history);
     }
 
     public function reset(): void
@@ -413,12 +423,14 @@ class UssdSession
     public function getFlag(string $key, mixed $default = null): mixed
     {
         $flags = $this->get('session_flags', []);
+
         return $flags[$key] ?? $default;
     }
 
     public function hasFlag(string $key): bool
     {
         $flags = $this->get('session_flags', []);
+
         return isset($flags[$key]);
     }
 
@@ -448,7 +460,7 @@ class UssdSession
 
     public function getContinuationMessage(): ?string
     {
-        if ($this->getFlag('session_resumed', false) && !$this->getFlag('continuation_message_shown', false)) {
+        if ($this->getFlag('session_resumed', false) && ! $this->getFlag('continuation_message_shown', false)) {
             $this->setFlag('continuation_message_shown', true);
 
             $context = $this->getRecoveryContext();
@@ -471,10 +483,12 @@ class UssdSession
 
     public function getGracePeriodMessage(): ?string
     {
-        if ($this->isInGracePeriod() && !$this->getFlag('grace_message_shown', false)) {
+        if ($this->isInGracePeriod() && ! $this->getFlag('grace_message_shown', false)) {
             $this->setFlag('grace_message_shown', true);
-            return "Your session timed out but you can continue where you left off.";
+
+            return 'Your session timed out but you can continue where you left off.';
         }
+
         return null;
     }
 
@@ -490,6 +504,7 @@ class UssdSession
     public function getUserPreference(string $key, mixed $default = null): mixed
     {
         $preferences = $this->get('user_preferences', []);
+
         return $preferences[$key] ?? $default;
     }
 
@@ -546,7 +561,7 @@ class UssdSession
     {
         $snapshots = $this->get('context_snapshots', []);
 
-        if (!isset($snapshots[$name])) {
+        if (! isset($snapshots[$name])) {
             return false;
         }
 
@@ -615,6 +630,7 @@ class UssdSession
     public function getSessionDuration(): float
     {
         $createdAt = Carbon::parse($this->get('session_metadata.created_at'));
+
         return Carbon::now()->diffInSeconds($createdAt);
     }
 
@@ -671,11 +687,12 @@ class UssdSession
 
         if ($exists) {
             $cachedData = Cache::get($this->cacheKey);
-            if (!is_array($cachedData)) {
+            if (! is_array($cachedData)) {
                 Log::warning('UnifiedUssdSession: Invalid cached session data, cleaning up', [
                     'phone' => $this->phoneNumber,
                 ]);
                 Cache::forget($this->cacheKey);
+
                 return false;
             }
         }

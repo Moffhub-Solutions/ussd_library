@@ -10,6 +10,7 @@ use Moffhub\Ussd\UssdSession;
 class ConditionalMenu extends UssdMenu
 {
     protected array $conditions = [];
+
     public mixed $defaultMenu;
 
     public function __construct(mixed $defaultMenu = null)

@@ -14,7 +14,9 @@ use Throwable;
 class UssdAuditLogger
 {
     protected $config;
+
     protected $context;
+
     protected ?UssdDatabaseService $databaseService = null;
 
     public function __construct($config = [])
@@ -50,7 +52,7 @@ class UssdAuditLogger
 
     public function logAction($action, $phoneNumber, $details = [], $level = 'info'): bool
     {
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             return false;
         }
 
@@ -61,7 +63,7 @@ class UssdAuditLogger
 
     public function logSecurity($event, $phoneNumber, $details = [], $level = 'warning'): bool
     {
-        if (!$this->config['log_security_events']) {
+        if (! $this->config['log_security_events']) {
             return false;
         }
 
@@ -157,7 +159,7 @@ class UssdAuditLogger
 
     public function logPerformance($action, $phoneNumber, $duration, $details = []): bool
     {
-        if (!$this->config['log_performance_metrics']) {
+        if (! $this->config['log_performance_metrics']) {
             return false;
         }
 
@@ -260,7 +262,7 @@ class UssdAuditLogger
 
     protected function sanitizeDetails($details)
     {
-        if (!is_array($details)) {
+        if (! is_array($details)) {
             return $details;
         }
 
@@ -342,7 +344,7 @@ class UssdAuditLogger
 
     public function cleanup(): false|int
     {
-        if (!$this->config['store_in_database']) {
+        if (! $this->config['store_in_database']) {
             return false;
         }
 
@@ -362,7 +364,7 @@ class UssdAuditLogger
 
     public function getStats($startDate = null, $endDate = null): array
     {
-        if (!$this->config['store_in_database']) {
+        if (! $this->config['store_in_database']) {
             return ['error' => 'Database storage not enabled'];
         }
 

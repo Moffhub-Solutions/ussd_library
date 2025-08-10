@@ -31,7 +31,7 @@ class UssdDatabaseService
 
     public function saveRateLimit(string $phoneNumber, string $action, array $requestTimestamps, ?Carbon $blockedUntil = null): bool
     {
-        if (!$this->config['enable_database_logging']) {
+        if (! $this->config['enable_database_logging']) {
             return false;
         }
 
@@ -74,7 +74,7 @@ class UssdDatabaseService
         string $severity = 'low',
         ?string $sessionId = null
     ): bool {
-        if (!$this->config['enable_database_logging']) {
+        if (! $this->config['enable_database_logging']) {
             return false;
         }
 
@@ -116,7 +116,7 @@ class UssdDatabaseService
         ?Carbon $startedAt = null,
         bool $completed = false
     ): bool {
-        if (!$this->config['enable_database_logging']) {
+        if (! $this->config['enable_database_logging']) {
             return false;
         }
 
@@ -158,7 +158,7 @@ class UssdDatabaseService
         ?string $sessionId = null,
         array $data = []
     ): bool {
-        if (!$this->config['enable_database_logging']) {
+        if (! $this->config['enable_database_logging']) {
             return false;
         }
 
@@ -197,7 +197,7 @@ class UssdDatabaseService
         array $recoveryContext = [],
         string $recoveryMethod = 'automatic'
     ): int {
-        if (!$this->config['enable_database_logging']) {
+        if (! $this->config['enable_database_logging']) {
             return 0;
         }
 
@@ -228,7 +228,7 @@ class UssdDatabaseService
 
     public function completeRecoveryLog(int $logId, bool $success, array $recoveredData = [], ?string $errorMessage = null): bool
     {
-        if ($logId === 0 || !$this->config['enable_database_logging']) {
+        if ($logId === 0 || ! $this->config['enable_database_logging']) {
             return false;
         }
 
@@ -262,7 +262,7 @@ class UssdDatabaseService
         ?string $sessionId = null,
         array $metadata = []
     ): bool {
-        if (!$this->config['enable_database_logging']) {
+        if (! $this->config['enable_database_logging']) {
             return false;
         }
 
@@ -300,7 +300,7 @@ class UssdDatabaseService
         array $dimensions = [],
         array $metadata = []
     ): bool {
-        if (!$this->config['enable_database_logging']) {
+        if (! $this->config['enable_database_logging']) {
             return false;
         }
 
@@ -337,7 +337,7 @@ class UssdDatabaseService
         float $timeSpent = 0,
         array $userSegments = []
     ): bool {
-        if (!$this->config['enable_database_logging']) {
+        if (! $this->config['enable_database_logging']) {
             return false;
         }
 
@@ -670,7 +670,7 @@ class UssdDatabaseService
 
     protected function hashPhoneNumber(string $phoneNumber): string
     {
-        if (!$this->config['anonymize_phone_numbers']) {
+        if (! $this->config['anonymize_phone_numbers']) {
             return $phoneNumber;
         }
 

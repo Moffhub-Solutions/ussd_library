@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Moffhub\Ussd\Helpers;
 
-
 class UssdHelpers
 {
     public static function arrayProvider(array $data): ArrayDataProvider

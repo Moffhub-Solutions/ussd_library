@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 namespace Moffhub\Ussd\Menus;
+
 use Moffhub\Ussd\Interfaces\ActionInterface;
 use Moffhub\Ussd\Interfaces\DataProviderInterface;
 use Moffhub\Ussd\UssdResponse;
@@ -11,13 +12,21 @@ use Moffhub\Ussd\UssdSession;
 class PaginatedMenu extends UssdMenu
 {
     protected string $title;
+
     protected mixed $dataProvider;
+
     protected $itemFormatter;
+
     protected $itemAction;
+
     protected int $maxSmsLength;
+
     protected int $reserveChars;
+
     protected bool $showNavigationHelp;
+
     protected string $emptyMessage;
+
     protected array $filters = [];
 
     public function __construct($title, $dataProvider, $options = [])
@@ -130,7 +139,7 @@ class PaginatedMenu extends UssdMenu
             $formattedItem = call_user_func($this->itemFormatter, $key, $item, $pageNumber);
             $itemLength = strlen($formattedItem) + 1;
 
-            if ($currentPageLength + $itemLength > $availableLength && !empty($currentPageItems)) {
+            if ($currentPageLength + $itemLength > $availableLength && ! empty($currentPageItems)) {
                 $pages[$pageNumber] = $currentPageItems;
                 $pageNumber++;
                 $currentPageItems = [];
@@ -141,7 +150,7 @@ class PaginatedMenu extends UssdMenu
             $currentPageLength += $itemLength;
         }
 
-        if (!empty($currentPageItems)) {
+        if (! empty($currentPageItems)) {
             $pages[$pageNumber] = $currentPageItems;
         }
 
@@ -203,7 +212,7 @@ class PaginatedMenu extends UssdMenu
 
     protected function handleItemSelection($input, UssdSession $session): UssdResponse
     {
-        if (!is_numeric($input)) {
+        if (! is_numeric($input)) {
             return UssdResponse::continue('Invalid selection. Please try again.');
         }
 
@@ -221,7 +230,7 @@ class PaginatedMenu extends UssdMenu
             }
         }
 
-        if (!$selectedItem) {
+        if (! $selectedItem) {
             return UssdResponse::continue('Item not found. Please try again.');
         }
 

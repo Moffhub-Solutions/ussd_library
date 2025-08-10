@@ -13,7 +13,9 @@ use Moffhub\Ussd\Services\UssdDatabaseService;
 class UssdRateLimiter
 {
     protected $config;
+
     protected $prefix;
+
     protected ?UssdDatabaseService $databaseService = null;
 
     public function __construct($config = [])
@@ -39,7 +41,7 @@ class UssdRateLimiter
 
     public function allow($phoneNumber, $action = 'request'): bool
     {
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             return true;
         }
 
@@ -59,7 +61,7 @@ class UssdRateLimiter
             return false;
         }
 
-        if (!$this->checkRateLimit($phoneNumber, $action)) {
+        if (! $this->checkRateLimit($phoneNumber, $action)) {
             $this->blockUser($phoneNumber);
             $this->logSecurity('rate_limit_exceeded', $phoneNumber, $action);
 

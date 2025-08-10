@@ -1,6 +1,5 @@
 <?php
 
-
 namespace Moffhub\Ussd\Menus;
 
 use Exception;
@@ -17,17 +16,29 @@ class UssdMenu implements UssdMenuInterface
     use GlobalNavigationTrait;
 
     protected ?UssdFramework $framework = null;
+
     protected string $title;
+
     protected string $type = 'simple'; // simple, form, enhanced_form, paginated, searchable, conditional, wizard
+
     protected array $config = [];
+
     protected array $options = [];
+
     protected array $actions = [];
+
     protected array $fields = [];
+
     protected array $conditions = [];
+
     protected array $validators = [];
+
     protected $onComplete = null;
+
     protected mixed $dataProvider = null;
+
     protected $itemFormatter = null;
+
     protected array $enabledFeatures = [];
 
     public function __construct(string $title)
@@ -54,20 +65,23 @@ class UssdMenu implements UssdMenuInterface
     public function setType(string $type): self
     {
         $this->type = $type;
+
         return $this;
     }
 
     public function setConfig(array $config): self
     {
         $this->config = array_merge($this->config, $config);
+
         return $this;
     }
 
     public function enableFeature(string $feature): self
     {
-        if (!in_array($feature, $this->enabledFeatures)) {
+        if (! in_array($feature, $this->enabledFeatures)) {
             $this->enabledFeatures[] = $feature;
         }
+
         return $this;
     }
 
@@ -76,12 +90,14 @@ class UssdMenu implements UssdMenuInterface
         foreach ($features as $feature) {
             $this->enableFeature($feature);
         }
+
         return $this;
     }
 
     public function disableFeature(string $feature): self
     {
-        $this->enabledFeatures = array_filter($this->enabledFeatures, fn($f) => $f !== $feature);
+        $this->enabledFeatures = array_filter($this->enabledFeatures, fn ($f) => $f !== $feature);
+
         return $this;
     }
 
@@ -94,6 +110,7 @@ class UssdMenu implements UssdMenuInterface
     public function setOptions(array $options): self
     {
         $this->options = $options;
+
         return $this;
     }
 
@@ -103,18 +120,21 @@ class UssdMenu implements UssdMenuInterface
         if ($action) {
             $this->actions[$key] = $action;
         }
+
         return $this;
     }
 
     public function setActions(array $actions): self
     {
         $this->actions = $actions;
+
         return $this;
     }
 
     public function addAction(string $key, callable $action): self
     {
         $this->actions[$key] = $action;
+
         return $this;
     }
 
@@ -124,6 +144,7 @@ class UssdMenu implements UssdMenuInterface
         foreach ($fields as $name => $config) {
             $this->addField($name, $config);
         }
+
         return $this;
     }
 
@@ -135,43 +156,49 @@ class UssdMenu implements UssdMenuInterface
             $prompt = $config['prompt'] ?? "Enter {$name}:";
             $this->fields[$name] = new FormField($name, $prompt, $config);
         }
+
         return $this;
     }
 
     public function setDataProvider(mixed $dataProvider): self
     {
         $this->dataProvider = $dataProvider;
+
         return $this;
     }
 
     public function setItemFormatter(callable $formatter): self
     {
         $this->itemFormatter = $formatter;
+
         return $this;
     }
 
     public function setOnComplete(?callable $onComplete): self
     {
         $this->onComplete = $onComplete;
+
         return $this;
     }
 
     public function setValidator(callable $validator): self
     {
         $this->validators[] = $validator;
+
         return $this;
     }
 
     public function addCondition(callable $condition, mixed $action): self
     {
         $this->conditions[] = ['condition' => $condition, 'action' => $action];
+
         return $this;
     }
+
     protected function getNavigationCommand(string $type): ?string
     {
         return $this->config['navigation'][$type] ?? null;
     }
-
 
     // Main processing methods
     public function process(string $input, UssdSession $session): UssdResponse
@@ -248,7 +275,7 @@ class UssdMenu implements UssdMenuInterface
 
         if (isset($this->options[$input])) {
             // Default action: just acknowledge the selection
-            return UssdResponse::end("You selected: " . $this->options[$input]);
+            return UssdResponse::end('You selected: '.$this->options[$input]);
         }
 
         return $this->handleInvalidInput($input, $session);
@@ -258,7 +285,7 @@ class UssdMenu implements UssdMenuInterface
     {
         $message = $this->title;
 
-        if (!empty($this->options)) {
+        if (! empty($this->options)) {
             $message .= "\n\n";
             foreach ($this->options as $key => $value) {
                 $message .= "{$key}. {$value}\n";
@@ -266,6 +293,7 @@ class UssdMenu implements UssdMenuInterface
         }
 
         $message = $this->addGlobalNavigation($message, $session);
+
         return UssdResponse::continue($message);
     }
 
@@ -302,7 +330,7 @@ class UssdMenu implements UssdMenuInterface
         $fieldIndex = $session->getFormData('_form_field_index', 0);
         $fieldKeys = array_keys($this->fields);
 
-        if (!isset($fieldKeys[$fieldIndex])) {
+        if (! isset($fieldKeys[$fieldIndex])) {
             return $this->completeForm($session);
         }
 
@@ -318,11 +346,13 @@ class UssdMenu implements UssdMenuInterface
         if (empty($input)) {
             if (method_exists($field, 'isOptional') && $field->isOptional()) {
                 $session->setFormData($fieldKey, '');
+
                 return $this->moveToNextField($session);
             }
 
-            $message = "This field is required.\n\n" . $field->getPrompt();
+            $message = "This field is required.\n\n".$field->getPrompt();
             $message = $this->addGlobalNavigation($message, $session);
+
             return UssdResponse::continue($message);
         }
 
@@ -330,8 +360,9 @@ class UssdMenu implements UssdMenuInterface
         if ($this->isFeatureEnabled('validation')) {
             $validation = $field->validate($input);
             if ($validation !== true) {
-                $message = $validation . "\n\n" . $field->getPrompt();
+                $message = $validation."\n\n".$field->getPrompt();
                 $message = $this->addGlobalNavigation($message, $session);
+
                 return UssdResponse::continue($message);
             }
         }
@@ -355,6 +386,7 @@ class UssdMenu implements UssdMenuInterface
             $field = $this->fields[$fieldKeys[$fieldIndex]];
             $message = $field->getPrompt();
             $message = $this->addGlobalNavigation($message, $session);
+
             return UssdResponse::continue($message);
         }
 
@@ -371,7 +403,7 @@ class UssdMenu implements UssdMenuInterface
             $fieldKey = $fieldKeys[$fieldIndex];
             $field = $this->fields[$fieldKey];
 
-            if (!method_exists($field, 'isVisible') || $field->isVisible($session->getFormData())) {
+            if (! method_exists($field, 'isVisible') || $field->isVisible($session->getFormData())) {
                 break;
             }
 
@@ -389,6 +421,7 @@ class UssdMenu implements UssdMenuInterface
         // Handle paginated fields
         if (method_exists($field, 'isPaginated') && $field->isPaginated()) {
             $session->setFormData('_form_state', 'paginating');
+
             return $this->showPaginatedFieldOptions($field, $session);
         }
 
@@ -397,10 +430,11 @@ class UssdMenu implements UssdMenuInterface
 
         if ($this->config['show_progress'] ?? false) {
             $progress = $this->calculateFormProgress($session);
-            $message = "Progress: {$progress}%\n\n" . $message;
+            $message = "Progress: {$progress}%\n\n".$message;
         }
 
         $message = $this->addGlobalNavigation($message, $session);
+
         return UssdResponse::continue($message);
     }
 
@@ -408,6 +442,7 @@ class UssdMenu implements UssdMenuInterface
     {
         $currentIndex = $session->getFormData('_form_field_index', 0);
         $session->setFormData('_form_field_index', $currentIndex + 1);
+
         return $this->showCurrentField($session);
     }
 
@@ -458,6 +493,7 @@ class UssdMenu implements UssdMenuInterface
     protected function displayPaginatedMenu(UssdSession $session): UssdResponse
     {
         $session->setMenuData(['pagination_page' => 1, 'search_query' => '', 'pagination_state' => 'browsing']);
+
         return $this->showPaginatedContent($session);
     }
 
@@ -468,12 +504,14 @@ class UssdMenu implements UssdMenuInterface
         // Handle navigation commands
         if ($input === '00') { // Next page
             $session->setMenuData(['pagination_page' => $currentPage + 1]);
+
             return $this->showPaginatedContent($session);
         }
 
         if ($input === '98' && $this->type === 'searchable') { // Search
             $session->setMenuData(['pagination_state' => 'searching']);
-            return UssdResponse::continue("Enter search term:");
+
+            return UssdResponse::continue('Enter search term:');
         }
 
         // Handle item selection
@@ -491,6 +529,7 @@ class UssdMenu implements UssdMenuInterface
         }
 
         $session->setMenuData(['search_query' => $input, 'pagination_page' => 1, 'pagination_state' => 'browsing']);
+
         return $this->showPaginatedContent($session);
     }
 
@@ -508,13 +547,14 @@ class UssdMenu implements UssdMenuInterface
             $searchQuery = $session->getMenuData('search_query', '');
             $message = empty($searchQuery) ? 'No items available.' : "No results found for '{$searchQuery}'.";
             $message = $this->addGlobalNavigation($message, $session);
+
             return UssdResponse::continue($message);
         }
 
-        $message = $this->title . "\n";
+        $message = $this->title."\n";
 
         $searchQuery = $session->getMenuData('search_query', '');
-        if (!empty($searchQuery)) {
+        if (! empty($searchQuery)) {
             $message .= "Search: '{$searchQuery}'\n";
         }
 
@@ -542,6 +582,7 @@ class UssdMenu implements UssdMenuInterface
         }
 
         $message = $this->addGlobalNavigation($message, $session);
+
         return UssdResponse::continue($message);
     }
 
@@ -556,7 +597,7 @@ class UssdMenu implements UssdMenuInterface
         $dataKeys = array_keys($pagedData);
         $inputIndex = (int) $input - 1;
 
-        if (!isset($dataKeys[$inputIndex])) {
+        if (! isset($dataKeys[$inputIndex])) {
             return $this->handleInvalidInput($input, $session);
         }
 
@@ -576,6 +617,7 @@ class UssdMenu implements UssdMenuInterface
 
         // Default action
         $displayText = $this->formatItem($selectedKey, $selectedItem);
+
         return UssdResponse::end("You selected: {$displayText}");
     }
 
@@ -625,7 +667,7 @@ class UssdMenu implements UssdMenuInterface
         $currentStep = $session->getMenuData('wizard_step', 0);
         $steps = $this->config['wizard_steps'] ?? [];
 
-        if (!isset($steps[$currentStep])) {
+        if (! isset($steps[$currentStep])) {
             return $this->completeWizard($session);
         }
 
@@ -637,6 +679,7 @@ class UssdMenu implements UssdMenuInterface
         if ($result === true) {
             // Move to next step
             $session->setMenuData(['wizard_step' => $currentStep + 1]);
+
             return $this->displayWizardMenu($session);
         } elseif ($result instanceof UssdResponse) {
             return $result;
@@ -649,6 +692,7 @@ class UssdMenu implements UssdMenuInterface
     protected function displayWizardMenu(UssdSession $session): UssdResponse
     {
         $currentStep = $session->getMenuData('wizard_step', 0);
+
         return $this->displayCurrentWizardStep($session);
     }
 
@@ -657,18 +701,19 @@ class UssdMenu implements UssdMenuInterface
         $currentStep = $session->getMenuData('wizard_step', 0);
         $steps = $this->config['wizard_steps'] ?? [];
 
-        if (!isset($steps[$currentStep])) {
+        if (! isset($steps[$currentStep])) {
             return $this->completeWizard($session);
         }
 
         $step = $steps[$currentStep];
-        $message = $step['title'] ?? "Step " . ($currentStep + 1);
+        $message = $step['title'] ?? 'Step '.($currentStep + 1);
 
         if (isset($step['content'])) {
-            $message .= "\n\n" . $step['content'];
+            $message .= "\n\n".$step['content'];
         }
 
         $message = $this->addGlobalNavigation($message, $session);
+
         return UssdResponse::continue($message);
     }
 
@@ -679,7 +724,7 @@ class UssdMenu implements UssdMenuInterface
         }
 
         // Default processing
-        return !empty($input);
+        return ! empty($input);
     }
 
     protected function completeWizard(UssdSession $session): UssdResponse
@@ -708,7 +753,7 @@ class UssdMenu implements UssdMenuInterface
 
         // Apply search filter if searching
         $searchQuery = $session->getMenuData('search_query', '');
-        if (!empty($searchQuery) && $this->type === 'searchable') {
+        if (! empty($searchQuery) && $this->type === 'searchable') {
             $data = $this->filterData($data, $searchQuery);
         }
 
@@ -727,7 +772,7 @@ class UssdMenu implements UssdMenuInterface
             if (is_array($item)) {
                 foreach ($searchFields as $field) {
                     if (isset($item[$field])) {
-                        $searchText .= ' ' . strtolower($item[$field]);
+                        $searchText .= ' '.strtolower($item[$field]);
                     }
                 }
             } else {
@@ -757,20 +802,20 @@ class UssdMenu implements UssdMenuInterface
 
     protected function handleGlobalNavigation(string $input, UssdSession $session): ?UssdResponse
     {
-        if (!$this->isGlobalNavigationEnabled()) {
+        if (! $this->isGlobalNavigationEnabled()) {
             return null;
         }
 
         $navigation = $this->config['navigation'] ?? [];
         $navCommand = $this->findNavigationCommand($input);
 
-        if (!$navCommand) {
+        if (! $navCommand) {
             return null;
         }
 
         return match ($navCommand) {
-                $navigation['back'] ?? '99' => $this->handleBackNavigation($session),
-                $navigation['home'] ?? '0' => $this->handleHomeNavigation($session),
+            $navigation['back'] ?? '99' => $this->handleBackNavigation($session),
+            $navigation['home'] ?? '0' => $this->handleHomeNavigation($session),
             default => null,
         };
     }
@@ -810,6 +855,7 @@ class UssdMenu implements UssdMenuInterface
         // For other types, use framework back navigation
         if ($this->framework && $this->framework->goBack()) {
             $currentMenu = $this->framework->getCurrentMenuPublic();
+
             return $currentMenu->display($session);
         }
 
@@ -824,14 +870,17 @@ class UssdMenu implements UssdMenuInterface
             // Go back to previous menu
             if ($this->framework && $this->framework->goBack()) {
                 $currentMenu = $this->framework->getCurrentMenuPublic();
+
                 return $currentMenu->display($session);
             }
+
             return UssdResponse::continue('Cannot go back further.');
         }
 
         // Go to previous field
         $session->setFormData('_form_field_index', $fieldIndex - 1);
         $session->setFormData('_form_state', 'collecting');
+
         return $this->showCurrentField($session);
     }
 
@@ -842,6 +891,7 @@ class UssdMenu implements UssdMenuInterface
             $session->reset();
             $this->framework->navigateToMenu($defaultMenu);
             $homeMenu = $this->framework->getMenu($defaultMenu);
+
             return $homeMenu->display($session);
         }
 
@@ -850,8 +900,9 @@ class UssdMenu implements UssdMenuInterface
 
     protected function handleInvalidInput(string $input, UssdSession $session): UssdResponse
     {
-        $message = "Invalid option. Please try again.";
+        $message = 'Invalid option. Please try again.';
         $message = $this->addGlobalNavigation($message, $session);
+
         return UssdResponse::continue($message);
     }
 
@@ -866,12 +917,14 @@ class UssdMenu implements UssdMenuInterface
         if ($input === '00') { // Next page
             $currentPage = $session->getFormData('_pagination_page', 1);
             $session->setFormData('_pagination_page', $currentPage + 1);
+
             return $this->showPaginatedFieldOptions($field, $session);
         }
 
         if ($input === '98' && method_exists($field, 'isSearchable') && $field->isSearchable()) {
             $session->setFormData('_form_state', 'searching');
-            return UssdResponse::continue('Search ' . $field->getName() . ":\nEnter search term:");
+
+            return UssdResponse::continue('Search '.$field->getName().":\nEnter search term:");
         }
 
         // Handle item selection
@@ -887,7 +940,7 @@ class UssdMenu implements UssdMenuInterface
         $options = method_exists($field, 'getOptions') ? $field->getOptions($session) : [];
         $searchQuery = $session->getFormData('_search_query', '');
 
-        if (!empty($searchQuery)) {
+        if (! empty($searchQuery)) {
             $searchFields = method_exists($field, 'getSearchFields') ? $field->getSearchFields() : ['name'];
             $options = $this->filterData($options, $searchQuery);
         }
@@ -902,12 +955,13 @@ class UssdMenu implements UssdMenuInterface
         if (empty($pagedOptions)) {
             $message = empty($searchQuery) ? 'No options available.' : "No results found for '{$searchQuery}'.";
             $message = $this->addGlobalNavigation($message, $session);
+
             return UssdResponse::continue($message);
         }
 
-        $message = method_exists($field, 'getPrompt') ? $field->getPrompt() . "\n" : $field->getName() . "\n";
+        $message = method_exists($field, 'getPrompt') ? $field->getPrompt()."\n" : $field->getName()."\n";
 
-        if (!empty($searchQuery)) {
+        if (! empty($searchQuery)) {
             $message .= "Search: '{$searchQuery}'\n";
         }
 
@@ -934,6 +988,7 @@ class UssdMenu implements UssdMenuInterface
         }
 
         $message = $this->addGlobalNavigation($message, $session);
+
         return UssdResponse::continue($message);
     }
 
@@ -942,7 +997,7 @@ class UssdMenu implements UssdMenuInterface
         $options = method_exists($field, 'getOptions') ? $field->getOptions($session) : [];
         $searchQuery = $session->getFormData('_search_query', '');
 
-        if (!empty($searchQuery)) {
+        if (! empty($searchQuery)) {
             $searchFields = method_exists($field, 'getSearchFields') ? $field->getSearchFields() : ['name'];
             $options = $this->filterData($options, $searchQuery);
         }
@@ -955,7 +1010,7 @@ class UssdMenu implements UssdMenuInterface
         $optionKeys = array_keys($pagedOptions);
         $inputIndex = (int) $input - 1;
 
-        if (!isset($optionKeys[$inputIndex])) {
+        if (! isset($optionKeys[$inputIndex])) {
             return $this->handleInvalidInput($input, $session);
         }
 
@@ -966,7 +1021,7 @@ class UssdMenu implements UssdMenuInterface
         $session->setFormData($field->getName(), $valueToSave);
 
         if (is_array($selectedItem)) {
-            $session->setFormData($field->getName() . '_details', $selectedItem);
+            $session->setFormData($field->getName().'_details', $selectedItem);
         }
 
         // Reset form state
@@ -1006,7 +1061,7 @@ class UssdMenu implements UssdMenuInterface
     // Global navigation trait implementation
     protected function addGlobalNavigation(string $message, UssdSession $session): string
     {
-        if (!$this->isGlobalNavigationEnabled()) {
+        if (! $this->isGlobalNavigationEnabled()) {
             return $message;
         }
 
@@ -1023,8 +1078,8 @@ class UssdMenu implements UssdMenuInterface
             $navOptions[] = "{$homeCommand}. Main Menu";
         }
 
-        if (!empty($navOptions)) {
-            $message .= "\n\n" . implode("\n", $navOptions);
+        if (! empty($navOptions)) {
+            $message .= "\n\n".implode("\n", $navOptions);
         }
 
         return $message;

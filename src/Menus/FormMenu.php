@@ -13,7 +13,9 @@ use Moffhub\Ussd\UssdSession;
 class FormMenu extends UssdMenu
 {
     protected string $title;
+
     protected array $fields = [];
+
     protected $onComplete;
 
     public function __construct($title, $fields = [], $onComplete = null)
@@ -258,7 +260,7 @@ class FormMenu extends UssdMenu
     {
         $showProgress = $this->config['form']['show_progress'] ?? false;
 
-        if (!$showProgress) {
+        if (! $showProgress) {
             return $message;
         }
 

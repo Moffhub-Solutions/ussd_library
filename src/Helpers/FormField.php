@@ -3,16 +3,23 @@
 declare(strict_types=1);
 
 namespace Moffhub\Ussd\Helpers;
+
 use Moffhub\Ussd\Interfaces\ValidatorInterface;
 
 class FormField
 {
     public string $name;
+
     public string $prompt;
+
     protected string $type;
+
     protected array $config;
+
     protected array $validators = [];
+
     public mixed $options;
+
     protected array $dependencies = [];
 
     public function __construct(string $name, string $prompt, array $config = [])
@@ -112,7 +119,7 @@ class FormField
                     }
                     break;
                 case 'in':
-                    if (!in_array($fieldValue, $value)) {
+                    if (! in_array($fieldValue, $value)) {
                         return false;
                     }
                     break;

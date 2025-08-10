@@ -10,7 +10,9 @@ use Illuminate\Support\Facades\Log;
 class UssdCacheManager
 {
     protected array $config;
+
     protected string $prefix;
+
     protected int $defaultTtl;
 
     public function __construct(array $config = [])
@@ -33,7 +35,7 @@ class UssdCacheManager
      */
     public function cacheMenuContent(string $menuName, mixed $content, ?string $userId = null, ?int $ttl = null): bool
     {
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             return false;
         }
 
@@ -53,7 +55,7 @@ class UssdCacheManager
      */
     public function getMenuContent(string $menuName, ?string $userId = null): mixed
     {
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             return null;
         }
 
@@ -76,7 +78,7 @@ class UssdCacheManager
      */
     public function cacheDataProvider(string $providerKey, array $filters, mixed $data, ?int $ttl = null): bool
     {
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             return false;
         }
 
@@ -99,7 +101,7 @@ class UssdCacheManager
      */
     public function getDataProvider(string $providerKey, array $filters = []): mixed
     {
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             return null;
         }
 
@@ -124,7 +126,7 @@ class UssdCacheManager
      */
     public function cacheUserData(string $userId, string $key, mixed $data, ?int $ttl = null): bool
     {
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             return false;
         }
 
@@ -144,7 +146,7 @@ class UssdCacheManager
      */
     public function getUserData(string $userId, string $key): mixed
     {
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             return null;
         }
 
@@ -163,7 +165,7 @@ class UssdCacheManager
      */
     public function invalidate(string $type, ?string $identifier = null): bool
     {
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             return false;
         }
 
@@ -199,7 +201,7 @@ class UssdCacheManager
      */
     public function warmUp(array $strategies = []): bool
     {
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             return false;
         }
 
@@ -233,7 +235,7 @@ class UssdCacheManager
      */
     public function getStats(): array
     {
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             return ['enabled' => false];
         }
 

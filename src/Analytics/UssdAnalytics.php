@@ -13,7 +13,9 @@ use Moffhub\Ussd\Services\UssdDatabaseService;
 class UssdAnalytics
 {
     protected array $config;
+
     protected array $metricsBuffer = [];
+
     protected ?UssdDatabaseService $databaseService = null;
 
     public function __construct(array $config = [])
@@ -44,7 +46,7 @@ class UssdAnalytics
 
     public function trackMenuInteraction(string $phoneNumber, string $menuName, string $option, array $details = []): bool
     {
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             return false;
         }
 
@@ -63,7 +65,7 @@ class UssdAnalytics
 
     public function trackUserJourney(string $phoneNumber, string $fromMenu, string $toMenu, string $action = 'navigate'): bool
     {
-        if (!$this->config['track_user_journey']) {
+        if (! $this->config['track_user_journey']) {
             return false;
         }
 
@@ -99,7 +101,7 @@ class UssdAnalytics
      */
     public function trackPerformance(string $action, int|float $duration, array $details = []): bool
     {
-        if (!$this->config['track_performance']) {
+        if (! $this->config['track_performance']) {
             return false;
         }
 
@@ -146,9 +148,9 @@ class UssdAnalytics
     /**
      * Track errors and exceptions
      */
-    public function trackError(Error $error, string|null $phoneNumber = null, array $context = []): bool
+    public function trackError(Error $error, ?string $phoneNumber = null, array $context = []): bool
     {
-        if (!$this->config['track_errors']) {
+        if (! $this->config['track_errors']) {
             return false;
         }
 
@@ -169,9 +171,9 @@ class UssdAnalytics
     /**
      * Track business metrics
      */
-    public function trackBusinessMetric(string $metric, string|int|float $value, string|null $phoneNumber = null, array $details = []): bool
+    public function trackBusinessMetric(string $metric, string|int|float $value, ?string $phoneNumber = null, array $details = []): bool
     {
-        if (!$this->config['track_business_metrics']) {
+        if (! $this->config['track_business_metrics']) {
             return false;
         }
 
@@ -190,7 +192,7 @@ class UssdAnalytics
         return $this->recordEvent($event);
     }
 
-    protected function saveBusinessMetricToDatabase(string $metricName, float|int|string $metricValue, string|null $phoneNumber, array $details): void
+    protected function saveBusinessMetricToDatabase(string $metricName, float|int|string $metricValue, ?string $phoneNumber, array $details): void
     {
         try {
             DB::table('ussd_business_metrics')->insert([
@@ -283,7 +285,7 @@ class UssdAnalytics
 
     public function flushBuffer(): bool
     {
-        if (empty($this->metricsBuffer) || !$this->config['store_in_database']) {
+        if (empty($this->metricsBuffer) || ! $this->config['store_in_database']) {
             return false;
         }
 
@@ -358,7 +360,7 @@ class UssdAnalytics
 
             case 'performance':
                 $action = $event['action'];
-                if (!isset($metrics['performance_stats'][$action])) {
+                if (! isset($metrics['performance_stats'][$action])) {
                     $metrics['performance_stats'][$action] = [
                         'count' => 0,
                         'total_duration' => 0,
@@ -391,7 +393,7 @@ class UssdAnalytics
 
     public function generateReport(Carbon $startDate, Carbon $endDate, array $metrics = []): array
     {
-        if (!$this->config['store_in_database']) {
+        if (! $this->config['store_in_database']) {
             return ['error' => 'Database storage not enabled'];
         }
 
@@ -416,7 +418,7 @@ class UssdAnalytics
 
     public function getFunnelAnalysis(array $steps, string $startDate, string $endDate): array
     {
-        if (!$this->config['store_in_database']) {
+        if (! $this->config['store_in_database']) {
             return ['error' => 'Database storage not enabled'];
         }
 
@@ -529,10 +531,10 @@ class UssdAnalytics
             return $sessionData['session_flags']['completed'];
         }
 
-        if (isset($sessionData['form_data']) && !empty($sessionData['form_data'])) {
+        if (isset($sessionData['form_data']) && ! empty($sessionData['form_data'])) {
             $formData = $sessionData['form_data'];
             $filledFields = array_filter($formData, function ($value) {
-                return !empty($value);
+                return ! empty($value);
             });
 
             return count($filledFields) >= 3;
@@ -543,7 +545,7 @@ class UssdAnalytics
 
     protected function calculateSessionDuration(array $sessionData): ?float
     {
-        if (!isset($sessionData['created_at'])) {
+        if (! isset($sessionData['created_at'])) {
             return null;
         }
 
@@ -607,7 +609,7 @@ class UssdAnalytics
 
     protected function hashPhoneNumber(string $phoneNumber): string
     {
-        if (!$this->config['anonymize_users']) {
+        if (! $this->config['anonymize_users']) {
             return $phoneNumber;
         }
 
@@ -681,7 +683,7 @@ class UssdAnalytics
         $actionStats = [];
         foreach ($performanceData as $data) {
             $action = $data['action'];
-            if (!isset($actionStats[$action])) {
+            if (! isset($actionStats[$action])) {
                 $actionStats[$action] = [
                     'count' => 0,
                     'total_duration' => 0,
@@ -775,7 +777,7 @@ class UssdAnalytics
 
     public function cleanup(): bool|int
     {
-        if (!$this->config['store_in_database']) {
+        if (! $this->config['store_in_database']) {
             return false;
         }
 

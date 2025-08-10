@@ -10,6 +10,7 @@ use InvalidArgumentException;
 class UssdInputSanitizer
 {
     protected $config;
+
     protected $patterns;
 
     public function __construct($config = [])
@@ -49,7 +50,7 @@ class UssdInputSanitizer
 
         $validationResult = $this->validate($input, $context);
 
-        if (!$validationResult['valid']) {
+        if (! $validationResult['valid']) {
             $this->logSuspiciousInput($originalInput, $validationResult['reasons'], $context);
 
             if ($this->config['strict_mode']) {
@@ -109,12 +110,12 @@ class UssdInputSanitizer
             }
         }
 
-        if (!preg_match('/^['.$this->config['allowed_chars'].']*$/', $input)) {
+        if (! preg_match('/^['.$this->config['allowed_chars'].']*$/', $input)) {
             $reasons[] = 'Contains invalid characters';
         }
 
         $contextValidation = $this->validateByContext($input, $context);
-        if (!$contextValidation['valid']) {
+        if (! $contextValidation['valid']) {
             $reasons = array_merge($reasons, $contextValidation['reasons']);
         }
 
@@ -153,7 +154,7 @@ class UssdInputSanitizer
     {
         $reasons = [];
 
-        if (!preg_match('/^254[7][0-9]{8}$/', $input)) {
+        if (! preg_match('/^254[7][0-9]{8}$/', $input)) {
             $reasons[] = 'Invalid phone number format';
         }
 
@@ -179,7 +180,7 @@ class UssdInputSanitizer
     {
         $reasons = [];
 
-        if (!is_numeric($input)) {
+        if (! is_numeric($input)) {
             $reasons[] = 'Invalid amount format';
         } elseif (floatval($input) < 0) {
             $reasons[] = 'Amount cannot be negative';
@@ -222,7 +223,7 @@ class UssdInputSanitizer
 
         $input = is_scalar($input) ? trim((string) $input) : '';
 
-        if (!preg_match('/^[a-zA-Z0-9\*\#\s\-\.]+$/', $input)) {
+        if (! preg_match('/^[a-zA-Z0-9\*\#\s\-\.]+$/', $input)) {
             $reasons[] = 'Contains invalid characters for USSD input';
         }
 
@@ -270,7 +271,7 @@ class UssdInputSanitizer
 
     protected function logSuspiciousInput($input, $reasons, $context): void
     {
-        if (!$this->config['log_suspicious']) {
+        if (! $this->config['log_suspicious']) {
             return;
         }
 
@@ -296,7 +297,7 @@ class UssdInputSanitizer
 
     public function isSuspicious($input): bool
     {
-        return array_any($this->patterns, fn($pattern) => preg_match($pattern, $input));
+        return array_any($this->patterns, fn ($pattern) => preg_match($pattern, $input));
 
     }
 }

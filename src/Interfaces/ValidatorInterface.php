@@ -9,7 +9,7 @@ interface ValidatorInterface
     /**
      * Validate the input and return true if valid, or error message string if invalid
      *
-     * @param mixed $input The input to validate
+     * @param  mixed  $input  The input to validate
      * @return bool|string True if valid, error message string if invalid
      */
     public function validate(mixed $input): bool|string;

@@ -4,10 +4,7 @@ use Illuminate\Support\ServiceProvider;
 
 class UssdServiceProvider extends ServiceProvider
 {
-    public function register(): void
-    {
-
-    }
+    public function register(): void {}
 
     public function boot(): void
     {

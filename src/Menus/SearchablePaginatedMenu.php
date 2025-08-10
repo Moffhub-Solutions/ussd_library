@@ -10,6 +10,7 @@ use Moffhub\Ussd\UssdSession;
 class SearchablePaginatedMenu extends PaginatedMenu
 {
     protected $searchable;
+
     protected $searchFields;
 
     public function __construct($title, $dataProvider, $options = [])
@@ -42,7 +43,7 @@ class SearchablePaginatedMenu extends PaginatedMenu
     {
         $searchQuery = $session->getFormData('search_query');
 
-        if ($this->searchable && $searchQuery === '' && !$this->isNavigationCommand($input) && !is_numeric($input)) {
+        if ($this->searchable && $searchQuery === '' && ! $this->isNavigationCommand($input) && ! is_numeric($input)) {
             $session->setFormData('search_query', $input);
 
             return $this->showSearchResults($input, $session);
@@ -78,7 +79,7 @@ class SearchablePaginatedMenu extends PaginatedMenu
         return array_filter($data, function ($item) use ($query) {
             if (is_array($item)) {
                 if (array_any($this->searchFields,
-                    fn($field) => isset($item[$field]) && str_contains(strtolower($item[$field]), $query))) {
+                    fn ($field) => isset($item[$field]) && str_contains(strtolower($item[$field]), $query))) {
                     return true;
                 }
             } else {

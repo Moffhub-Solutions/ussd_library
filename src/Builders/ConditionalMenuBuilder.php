@@ -5,6 +5,7 @@ namespace Moffhub\Ussd\Builders;
 class ConditionalMenuBuilder
 {
     protected ConditionalMenu $menu;
+
     protected UssdBuilder $builder;
 
     public function __construct(ConditionalMenu $menu, UssdBuilder $builder)
@@ -16,12 +17,14 @@ class ConditionalMenuBuilder
     public function when(callable $condition, mixed $menu): self
     {
         $this->menu->addCondition($condition, $menu);
+
         return $this;
     }
 
     public function otherwise(mixed $menu): self
     {
         $this->menu->setDefaultMenu($menu);
+
         return $this;
     }
 

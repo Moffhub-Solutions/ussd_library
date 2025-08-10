@@ -1,5 +1,7 @@
 <?php
+
 namespace Moffhub\Ussd;
+
 use App\Libraries\Ussd\Security\UssdRateLimiter;
 use Carbon\Carbon;
 use Exception;
@@ -16,31 +18,43 @@ class UssdFramework
 {
     /** @var array<string, UssdMenuInterface> */
     protected array $menus = [];
+
     protected UssdSession $session;
+
     protected ?Request $request = null;
+
     /** @var array<string, mixed> */
     protected array $config;
+
     /** @var array<string, array<callable>> */
     protected array $hooks = [];
 
     // Enhanced components
     protected ?UssdCacheManager $cacheManager = null;
+
     protected ?UssdRateLimiter $rateLimiter = null;
+
     protected ?UssdInputSanitizer $inputSanitizer = null;
+
     protected ?UssdAuditLogger $auditLogger = null;
+
     protected ?UssdAnalytics $analytics = null;
+
     protected ?UssdDatabaseService $databaseService = null;
 
     protected float $startTime;
+
     protected array $performanceMetrics = [];
+
     protected bool $sessionContinuationEnabled = true;
+
     protected array $sessionValidators = [];
+
     protected array $sessionRecoveryHandlers = [];
 
     public function __construct(
         array $config = [],
-    )
-    {
+    ) {
         $this->startTime = microtime(true);
         $this->config = $this->mergeDefaultConfig($config);
         $this->initializeComponents();
@@ -133,17 +147,19 @@ class UssdFramework
         // Session validators
         $this->sessionValidators['timeout'] = function ($sessionData) {
             $updatedAt = Carbon::parse($sessionData['updated_at']);
+
             return $updatedAt->addSeconds($this->config['session_timeout'])->isAfter(Carbon::now());
         };
 
         $this->sessionValidators['grace_period'] = function ($sessionData) {
             $updatedAt = Carbon::parse($sessionData['updated_at']);
+
             return $updatedAt->addSeconds($this->config['grace_period'])->isAfter(Carbon::now());
         };
 
         // Recovery handlers
         $this->sessionRecoveryHandlers['form_recovery'] = function ($sessionData) {
-            if (!empty($sessionData['form_data'])) {
+            if (! empty($sessionData['form_data'])) {
                 $completionPercentage = $this->calculateFormCompletionPercentage($sessionData);
                 if ($completionPercentage > 50) {
                     return [
@@ -154,6 +170,7 @@ class UssdFramework
                     ];
                 }
             }
+
             return null;
         };
 
@@ -168,6 +185,7 @@ class UssdFramework
                     ];
                 }
             }
+
             return null;
         };
     }
@@ -182,14 +200,15 @@ class UssdFramework
             $requestStartTime = microtime(true);
 
             // Security checks
-            if ($this->rateLimiter && !$this->rateLimiter->allow($phoneNumber)) {
+            if ($this->rateLimiter && ! $this->rateLimiter->allow($phoneNumber)) {
                 $this->auditLogger?->logSecurity('rate_limit_exceeded', $phoneNumber);
+
                 return new UssdResponse('END Service temporarily unavailable. Please try again later.', UssdResponse::END);
             }
 
             if ($this->inputSanitizer) {
                 $sanitizationResult = $this->inputSanitizer->sanitize($userInput, 'menu_option');
-                if (!$sanitizationResult['valid'] && $sanitizationResult['suspicious']) {
+                if (! $sanitizationResult['valid'] && $sanitizationResult['suspicious']) {
                     $this->auditLogger?->logSecurity('suspicious_input', $phoneNumber, [
                         'input' => $userInput,
                         'reasons' => $sanitizationResult['reasons'],
@@ -205,7 +224,7 @@ class UssdFramework
             $this->session = $this->getOrCreateSession($request);
 
             // Track session start if new
-            if (!$this->session->exists() && $this->analytics) {
+            if (! $this->session->exists() && $this->analytics) {
                 $this->analytics->trackSession($phoneNumber, 'start');
             }
 
@@ -256,6 +275,7 @@ class UssdFramework
 
         } catch (Exception $e) {
             $this->handleError($e, $phoneNumber, $userInput);
+
             return new UssdResponse('END Service temporarily unavailable. Please try again.', UssdResponse::END);
         } finally {
             $this->performCleanup($requestStartTime, $phoneNumber, $userInput);
@@ -290,6 +310,7 @@ class UssdFramework
         if ($this->sessionValidators['grace_period']($sessionData)) {
             $session = $this->createSessionFromData($sessionData, $request, 'grace_period');
             $session->setFlag('in_grace_period', true);
+
             return $session;
         }
 
@@ -299,6 +320,7 @@ class UssdFramework
             if ($recoveryContext) {
                 $session = $this->createSessionFromData($sessionData, $request, 'recovered');
                 $session->setRecoveryContext($recoveryContext);
+
                 return $session;
             }
         }
@@ -319,6 +341,7 @@ class UssdFramework
                 return $context;
             }
         }
+
         return null;
     }
 
@@ -328,6 +351,7 @@ class UssdFramework
         $session->loadFromData($sessionData);
         $session->setStatus($status);
         $session->updateLastAccess();
+
         return $session;
     }
 
@@ -357,12 +381,13 @@ class UssdFramework
 
         $session->setFlag('session_resumed', true);
         $session->setFlag('context_preserved', true);
+
         return $session;
     }
 
     protected function handleSessionContinuation(): ?UssdResponse
     {
-        if (!$this->sessionContinuationEnabled) {
+        if (! $this->sessionContinuationEnabled) {
             return null;
         }
 
@@ -371,7 +396,8 @@ class UssdFramework
             $menuName = $this->session->getCurrentMenu() ?: $this->config['default_menu'];
             $currentMenu = $this->getMenu($menuName);
             $menuResponse = $currentMenu->display($this->session);
-            $fullMessage = $graceMessage . "\n\n" . $menuResponse->getMessage();
+            $fullMessage = $graceMessage."\n\n".$menuResponse->getMessage();
+
             return new UssdResponse($fullMessage, $menuResponse->getType());
         }
 
@@ -423,12 +449,14 @@ class UssdFramework
 
         if (empty($text)) {
             $currentMenu = $this->getCurrentMenu();
+
             return $currentMenu->process('', $session);
         }
 
         $text = trim($text);
         if (empty($text)) {
             $currentMenu = $this->getCurrentMenu();
+
             return $currentMenu->process('', $session);
         }
 
@@ -441,6 +469,7 @@ class UssdFramework
 
         try {
             $response = $currentMenu->process($text, $session);
+
             return $response ?: new UssdResponse('END Service error. Please try again.', UssdResponse::END);
         } catch (Exception $e) {
             Log::error('USSD: Menu processing error', [
@@ -448,6 +477,7 @@ class UssdFramework
                 'menu' => $session->getCurrentMenu(),
                 'input' => $text,
             ]);
+
             return new UssdResponse('CON Service error occurred. Please try again.', UssdResponse::CONTINUE);
         }
     }
@@ -479,6 +509,7 @@ class UssdFramework
     {
         $currentMenu = $this->getCurrentMenu();
         $this->session->createContextSnapshot('form_continuation');
+
         return $currentMenu->display($this->session);
     }
 
@@ -489,6 +520,7 @@ class UssdFramework
 
         if ($transactionId) {
             $this->navigateToMenu('transaction_resume', ['transaction_id' => $transactionId]);
+
             return $this->getCurrentMenu()->display($this->session);
         }
 
@@ -503,37 +535,40 @@ class UssdFramework
     protected function startOver(): UssdResponse
     {
         $this->session->reset();
+
         return $this->navigateToDefaultMenu();
     }
 
     protected function cancel(): UssdResponse
     {
         $this->session->reset();
+
         return new UssdResponse('Session cancelled. Returning to main menu.', UssdResponse::CONTINUE);
     }
 
     protected function navigateToDefaultMenu(): UssdResponse
     {
         $this->navigateToMenu($this->config['default_menu']);
+
         return $this->getCurrentMenu()->display($this->session);
     }
 
     protected function handleGlobalNavigation(string $input, UssdSession $session): ?UssdResponse
     {
-        if (!($this->config['global_navigation']['enabled'] ?? true)) {
+        if (! ($this->config['global_navigation']['enabled'] ?? true)) {
             return null;
         }
 
         $navigation = $this->config['navigation'] ?? [];
         $navCommand = $this->extractNavigationCommand($input);
 
-        if (!$navCommand) {
+        if (! $navCommand) {
             return null;
         }
 
         return match ($navCommand) {
-                $navigation['back'] ?? '99' => $this->handleBackNavigation($session),
-                $navigation['home'] ?? '0' => $this->handleHomeNavigation($session),
+            $navigation['back'] ?? '99' => $this->handleBackNavigation($session),
+            $navigation['home'] ?? '0' => $this->handleHomeNavigation($session),
             default => null,
         };
     }
@@ -568,11 +603,13 @@ class UssdFramework
 
         if ($currentMenu === $defaultMenu) {
             $menu = $this->getCurrentMenu();
+
             return $menu->process('', $session);
         }
 
         if ($session->goBack()) {
             $menu = $this->getCurrentMenu();
+
             return $menu->process('', $session);
         }
 
@@ -586,12 +623,14 @@ class UssdFramework
 
         if ($currentMenu === $defaultMenu) {
             $menu = $this->getCurrentMenu();
+
             return $menu->process('', $session);
         }
 
         $session->reset();
         $this->navigateToMenu($defaultMenu);
         $menu = $this->getCurrentMenu();
+
         return $menu->process('', $session);
     }
 
@@ -617,14 +656,16 @@ class UssdFramework
         foreach ($menus as $name => $menu) {
             $this->registerMenu($name, $menu);
         }
+
         return $this;
     }
 
     public function getMenu(string $name): UssdMenuInterface
     {
-        if (!isset($this->menus[$name])) {
+        if (! isset($this->menus[$name])) {
             throw new Exception("Menu '{$name}' not found");
         }
+
         return $this->menus[$name];
     }
 
@@ -663,6 +704,7 @@ class UssdFramework
     protected function getCurrentMenu(): UssdMenuInterface
     {
         $menuName = $this->session->getCurrentMenu() ?: $this->config['default_menu'];
+
         return $this->getMenu($menuName);
     }
 
@@ -685,9 +727,10 @@ class UssdFramework
 
     public function migrateSession(string $fromPhoneNumber, string $toPhoneNumber): bool
     {
-        if (!$this->config['enable_session_migration']) {
+        if (! $this->config['enable_session_migration']) {
             return false;
         }
+
         // Implementation depends on persistence strategy
         return false;
     }
@@ -695,10 +738,11 @@ class UssdFramework
     // Hook management
     public function addHook(string $event, callable $callback): static
     {
-        if (!isset($this->hooks[$event])) {
+        if (! isset($this->hooks[$event])) {
             $this->hooks[$event] = [];
         }
         $this->hooks[$event][] = $callback;
+
         return $this;
     }
 
@@ -725,6 +769,7 @@ class UssdFramework
         if ($key === null) {
             return $this->config;
         }
+
         return data_get($this->config, $key, $default);
     }
 
@@ -773,7 +818,7 @@ class UssdFramework
     // Helper methods
     protected function calculateFormCompletionPercentage(array $sessionData): int
     {
-        if (!isset($sessionData['form_data']) || !isset($sessionData['form_config'])) {
+        if (! isset($sessionData['form_data']) || ! isset($sessionData['form_config'])) {
             return 0;
         }
 
@@ -793,6 +838,7 @@ class UssdFramework
     protected function getPreservableUserData(array $userData): array
     {
         $preservableKeys = ['user_preferences', 'language', 'timezone', 'user_profile', 'account_info'];
+
         return array_intersect_key($userData, array_flip($preservableKeys));
     }
 

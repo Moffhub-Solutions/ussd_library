@@ -3,13 +3,14 @@
 declare(strict_types=1);
 
 namespace Moffhub\Ussd\Helpers;
+
 class UssdEvents
 {
     protected static array $listeners = [];
 
     public static function listen(string $event, callable $callback): void
     {
-        if (!isset(static::$listeners[$event])) {
+        if (! isset(static::$listeners[$event])) {
             static::$listeners[$event] = [];
         }
 

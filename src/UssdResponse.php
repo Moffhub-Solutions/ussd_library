@@ -5,10 +5,15 @@ namespace Moffhub\Ussd;
 class UssdResponse
 {
     public const string CONTINUE = 'CON';
+
     public const string END = 'END';
+
     protected ?array $debugInfo = null;
+
     protected string $message;
+
     protected array $metadata = [];
+
     protected string $type;
 
     public function __construct(string $message, string $type = self::CONTINUE, array $metadata = [])
@@ -31,10 +36,10 @@ class UssdResponse
         $lines = array_map('trim', $lines);
 
         // Remove empty lines at the beginning and end
-        while (!empty($lines) && empty($lines[0])) {
+        while (! empty($lines) && empty($lines[0])) {
             array_shift($lines);
         }
-        while (!empty($lines) && empty($lines[count($lines) - 1])) {
+        while (! empty($lines) && empty($lines[count($lines) - 1])) {
             array_pop($lines);
         }
 
@@ -95,7 +100,7 @@ class UssdResponse
             $message = "Error: {$validationError}\n\n{$message}";
         }
 
-        if (!$isRequired) {
+        if (! $isRequired) {
             $message .= "\n(Optional - press * to skip)";
         }
 
@@ -121,7 +126,7 @@ class UssdResponse
     {
         $message = $title;
 
-        if (!empty($options)) {
+        if (! empty($options)) {
             $message .= "\n\n";
             foreach ($options as $key => $value) {
                 $message .= "{$key}. {$value}\n";
@@ -130,7 +135,7 @@ class UssdResponse
 
         $response = self::continue($message);
 
-        if (!empty($navigationOptions)) {
+        if (! empty($navigationOptions)) {
             $response->addNavigation($navigationOptions);
         }
 
@@ -147,10 +152,11 @@ class UssdResponse
 
     public function addNavigation(array $navigationOptions): self
     {
-        if (!empty($navigationOptions)) {
+        if (! empty($navigationOptions)) {
             $navText = "\n\n".implode("\n", $navigationOptions);
             $this->appendMessage($navText);
         }
+
         return $this;
     }
 
@@ -160,6 +166,7 @@ class UssdResponse
     {
         $this->message .= $message;
         $this->message = $this->sanitizeMessage($this->message);
+
         return $this;
     }
 
@@ -231,7 +238,7 @@ class UssdResponse
         ]);
     }
 
-    public static function search(string $prompt = "Enter search term:", ?string $currentQuery = null): self
+    public static function search(string $prompt = 'Enter search term:', ?string $currentQuery = null): self
     {
         $message = $prompt;
 
@@ -273,6 +280,7 @@ class UssdResponse
     public static function validationError(string $field, string $error, string $prompt): self
     {
         $message = "Error: {$error}\n\n{$prompt}";
+
         return new self($message, self::CONTINUE, [
             'type' => 'validation_error',
             'field' => $field,
@@ -298,12 +306,14 @@ class UssdResponse
         if (config('app.debug', false)) {
             $this->addMetadata('debug', $debugInfo);
         }
+
         return $this;
     }
 
     public function addMetadata(string $key, mixed $value): self
     {
         $this->metadata[$key] = $value;
+
         return $this;
     }
 
@@ -325,6 +335,7 @@ class UssdResponse
     public function setMessage(string $message): self
     {
         $this->message = $this->sanitizeMessage($message);
+
         return $this;
     }
 
@@ -338,6 +349,7 @@ class UssdResponse
     public function setMetadata(array $metadata): self
     {
         $this->metadata = $metadata;
+
         return $this;
     }
 
@@ -349,6 +361,7 @@ class UssdResponse
     public function setType(string $type): self
     {
         $this->type = $type;
+
         return $this;
     }
 
@@ -383,6 +396,7 @@ class UssdResponse
     {
         $this->message = $message.$this->message;
         $this->message = $this->sanitizeMessage($this->message);
+
         return $this;
     }
 
@@ -391,6 +405,7 @@ class UssdResponse
     public function removeMetadata(string $key): self
     {
         unset($this->metadata[$key]);
+
         return $this;
     }
 
@@ -433,6 +448,7 @@ class UssdResponse
         if (strlen($this->message) > $maxLength) {
             $this->message = substr($this->message, 0, $maxLength - 3).'...';
         }
+
         return $this;
     }
 }
