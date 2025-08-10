@@ -1,0 +1,1049 @@
+<?php
+
+
+namespace Moffhub\Ussd\Menus;
+
+use Exception;
+use Moffhub\Ussd\Helpers\FormField;
+use Moffhub\Ussd\Interfaces\ActionInterface;
+use Moffhub\Ussd\Interfaces\UssdMenuInterface;
+use Moffhub\Ussd\Traits\GlobalNavigationTrait;
+use Moffhub\Ussd\UssdFramework;
+use Moffhub\Ussd\UssdResponse;
+use Moffhub\Ussd\UssdSession;
+
+class UssdMenu implements UssdMenuInterface
+{
+    use GlobalNavigationTrait;
+
+    protected ?UssdFramework $framework = null;
+    protected string $title;
+    protected string $type = 'simple'; // simple, form, enhanced_form, paginated, searchable, conditional, wizard
+    protected array $config = [];
+    protected array $options = [];
+    protected array $actions = [];
+    protected array $fields = [];
+    protected array $conditions = [];
+    protected array $validators = [];
+    protected $onComplete = null;
+    protected mixed $dataProvider = null;
+    protected $itemFormatter = null;
+    protected array $enabledFeatures = [];
+
+    public function __construct(string $title)
+    {
+        $this->title = $title;
+        $this->config = [
+            'items_per_page' => 5,
+            'search_fields' => ['name'],
+            'enable_validation' => true,
+            'show_progress' => false,
+            'preserve_context' => false,
+            'enable_back_navigation' => true,
+            'navigation_commands' => ['99' => 'back', '0' => 'home', '98' => 'search', '00' => 'next'],
+        ];
+    }
+
+    public function setFramework(UssdFramework $framework): void
+    {
+        $this->framework = $framework;
+        $this->config = array_merge($this->config, $framework->getConfig());
+    }
+
+    // Configuration methods
+    public function setType(string $type): self
+    {
+        $this->type = $type;
+        return $this;
+    }
+
+    public function setConfig(array $config): self
+    {
+        $this->config = array_merge($this->config, $config);
+        return $this;
+    }
+
+    public function enableFeature(string $feature): self
+    {
+        if (!in_array($feature, $this->enabledFeatures)) {
+            $this->enabledFeatures[] = $feature;
+        }
+        return $this;
+    }
+
+    public function enableFeatures(array $features): self
+    {
+        foreach ($features as $feature) {
+            $this->enableFeature($feature);
+        }
+        return $this;
+    }
+
+    public function disableFeature(string $feature): self
+    {
+        $this->enabledFeatures = array_filter($this->enabledFeatures, fn($f) => $f !== $feature);
+        return $this;
+    }
+
+    public function isFeatureEnabled(string $feature): bool
+    {
+        return in_array($feature, $this->enabledFeatures);
+    }
+
+    // Content configuration
+    public function setOptions(array $options): self
+    {
+        $this->options = $options;
+        return $this;
+    }
+
+    public function addOption(string $key, string $value, ?callable $action = null): self
+    {
+        $this->options[$key] = $value;
+        if ($action) {
+            $this->actions[$key] = $action;
+        }
+        return $this;
+    }
+
+    public function setActions(array $actions): self
+    {
+        $this->actions = $actions;
+        return $this;
+    }
+
+    public function addAction(string $key, callable $action): self
+    {
+        $this->actions[$key] = $action;
+        return $this;
+    }
+
+    public function setFields(array $fields): self
+    {
+        $this->fields = [];
+        foreach ($fields as $name => $config) {
+            $this->addField($name, $config);
+        }
+        return $this;
+    }
+
+    public function addField(string $name, array $config): self
+    {
+        if ($config instanceof FormField) {
+            $this->fields[$name] = $config;
+        } else {
+            $prompt = $config['prompt'] ?? "Enter {$name}:";
+            $this->fields[$name] = new FormField($name, $prompt, $config);
+        }
+        return $this;
+    }
+
+    public function setDataProvider(mixed $dataProvider): self
+    {
+        $this->dataProvider = $dataProvider;
+        return $this;
+    }
+
+    public function setItemFormatter(callable $formatter): self
+    {
+        $this->itemFormatter = $formatter;
+        return $this;
+    }
+
+    public function setOnComplete(?callable $onComplete): self
+    {
+        $this->onComplete = $onComplete;
+        return $this;
+    }
+
+    public function setValidator(callable $validator): self
+    {
+        $this->validators[] = $validator;
+        return $this;
+    }
+
+    public function addCondition(callable $condition, mixed $action): self
+    {
+        $this->conditions[] = ['condition' => $condition, 'action' => $action];
+        return $this;
+    }
+    protected function getNavigationCommand(string $type): ?string
+    {
+        return $this->config['navigation'][$type] ?? null;
+    }
+
+
+    // Main processing methods
+    public function process(string $input, UssdSession $session): UssdResponse
+    {
+        $step = $session->getStep();
+
+        if (empty($input) && $step === 0) {
+            return $this->showInitial($session);
+        }
+
+        if (empty($input) && $step > 0) {
+            return $this->handleEmptyInput($step, $session);
+        }
+
+        // Handle global navigation
+        $navResponse = $this->handleGlobalNavigation($input, $session);
+        if ($navResponse !== null) {
+            return $navResponse;
+        }
+
+        // Process based on menu type and current state
+        return match ($this->type) {
+            'simple' => $this->processSimpleMenu($input, $session),
+            'form', 'enhanced_form', 'flexible_form' => $this->processFormMenu($input, $session),
+            'paginated', 'searchable' => $this->processPaginatedMenu($input, $session),
+            'conditional' => $this->processConditionalMenu($input, $session),
+            'wizard' => $this->processWizardMenu($input, $session),
+            default => $this->processSimpleMenu($input, $session),
+        };
+    }
+
+    public function display(UssdSession $session): UssdResponse
+    {
+        return $this->showInitial($session);
+    }
+
+    protected function showInitial(UssdSession $session): UssdResponse
+    {
+        $session->setStep(0);
+
+        return match ($this->type) {
+            'simple' => $this->displaySimpleMenu($session),
+            'form', 'enhanced_form', 'flexible_form' => $this->displayFormMenu($session),
+            'paginated', 'searchable' => $this->displayPaginatedMenu($session),
+            'conditional' => $this->displayConditionalMenu($session),
+            'wizard' => $this->displayWizardMenu($session),
+            default => $this->displaySimpleMenu($session),
+        };
+    }
+
+    protected function handleEmptyInput(int $step, UssdSession $session): UssdResponse
+    {
+        // For forms, empty input might mean optional field or re-display current step
+        if (in_array($this->type, ['form', 'enhanced_form', 'flexible_form'])) {
+            return $this->handleEmptyFormInput($step, $session);
+        }
+
+        // For other types, re-display current state
+        return $this->display($session);
+    }
+
+    // Simple menu processing
+    protected function processSimpleMenu(string $input, UssdSession $session): UssdResponse
+    {
+        if (isset($this->actions[$input])) {
+            $action = $this->actions[$input];
+
+            if ($action instanceof ActionInterface) {
+                return $action->execute($input, $session, $this->framework);
+            } elseif (is_callable($action)) {
+                return $action($input, $session, $this->framework);
+            }
+        }
+
+        if (isset($this->options[$input])) {
+            // Default action: just acknowledge the selection
+            return UssdResponse::end("You selected: " . $this->options[$input]);
+        }
+
+        return $this->handleInvalidInput($input, $session);
+    }
+
+    protected function displaySimpleMenu(UssdSession $session): UssdResponse
+    {
+        $message = $this->title;
+
+        if (!empty($this->options)) {
+            $message .= "\n\n";
+            foreach ($this->options as $key => $value) {
+                $message .= "{$key}. {$value}\n";
+            }
+        }
+
+        $message = $this->addGlobalNavigation($message, $session);
+        return UssdResponse::continue($message);
+    }
+
+    // Form menu processing
+    protected function processFormMenu(string $input, UssdSession $session): UssdResponse
+    {
+        $formState = $session->getFormData('_form_state', 'collecting');
+        $fieldIndex = $session->getFormData('_form_field_index', 0);
+
+        return match ($formState) {
+            'collecting' => $this->handleFieldInput($input, $session),
+            'paginating' => $this->handleFormPaginationInput($input, $session),
+            'searching' => $this->handleFormSearchInput($input, $session),
+            default => $this->handleFieldInput($input, $session),
+        };
+    }
+
+    protected function displayFormMenu(UssdSession $session): UssdResponse
+    {
+        if (empty($this->fields)) {
+            return UssdResponse::end('No fields defined for this form.');
+        }
+
+        $session->setFormData('_form_field_index', 0);
+        $session->setFormData('_form_state', 'collecting');
+        $session->setFormData('_pagination_page', 1);
+        $session->setFormData('_search_query', '');
+
+        return $this->showCurrentField($session);
+    }
+
+    protected function handleFieldInput(string $input, UssdSession $session): UssdResponse
+    {
+        $fieldIndex = $session->getFormData('_form_field_index', 0);
+        $fieldKeys = array_keys($this->fields);
+
+        if (!isset($fieldKeys[$fieldIndex])) {
+            return $this->completeForm($session);
+        }
+
+        $fieldKey = $fieldKeys[$fieldIndex];
+        $field = $this->fields[$fieldKey];
+
+        // Handle paginated/searchable fields
+        if (method_exists($field, 'isPaginated') && $field->isPaginated()) {
+            return $this->handlePaginatedField($field, $input, $session);
+        }
+
+        // Handle regular field input
+        if (empty($input)) {
+            if (method_exists($field, 'isOptional') && $field->isOptional()) {
+                $session->setFormData($fieldKey, '');
+                return $this->moveToNextField($session);
+            }
+
+            $message = "This field is required.\n\n" . $field->getPrompt();
+            $message = $this->addGlobalNavigation($message, $session);
+            return UssdResponse::continue($message);
+        }
+
+        // Validate input
+        if ($this->isFeatureEnabled('validation')) {
+            $validation = $field->validate($input);
+            if ($validation !== true) {
+                $message = $validation . "\n\n" . $field->getPrompt();
+                $message = $this->addGlobalNavigation($message, $session);
+                return UssdResponse::continue($message);
+            }
+        }
+
+        // Save field data
+        $session->setFormData($fieldKey, $input);
+
+        if ($this->isFeatureEnabled('context_snapshots')) {
+            $session->createContextSnapshot("field_{$fieldKey}_completed");
+        }
+
+        return $this->moveToNextField($session);
+    }
+
+    protected function handleEmptyFormInput(int $step, UssdSession $session): UssdResponse
+    {
+        $fieldIndex = $session->getFormData('_form_field_index', 0);
+        $fieldKeys = array_keys($this->fields);
+
+        if (isset($fieldKeys[$fieldIndex])) {
+            $field = $this->fields[$fieldKeys[$fieldIndex]];
+            $message = $field->getPrompt();
+            $message = $this->addGlobalNavigation($message, $session);
+            return UssdResponse::continue($message);
+        }
+
+        return $this->showCurrentField($session);
+    }
+
+    protected function showCurrentField(UssdSession $session): UssdResponse
+    {
+        $fieldIndex = $session->getFormData('_form_field_index', 0);
+        $fieldKeys = array_keys($this->fields);
+
+        // Skip invisible fields
+        while ($fieldIndex < count($fieldKeys)) {
+            $fieldKey = $fieldKeys[$fieldIndex];
+            $field = $this->fields[$fieldKey];
+
+            if (!method_exists($field, 'isVisible') || $field->isVisible($session->getFormData())) {
+                break;
+            }
+
+            $fieldIndex++;
+            $session->setFormData('_form_field_index', $fieldIndex);
+        }
+
+        if ($fieldIndex >= count($fieldKeys)) {
+            return $this->completeForm($session);
+        }
+
+        $fieldKey = $fieldKeys[$fieldIndex];
+        $field = $this->fields[$fieldKey];
+
+        // Handle paginated fields
+        if (method_exists($field, 'isPaginated') && $field->isPaginated()) {
+            $session->setFormData('_form_state', 'paginating');
+            return $this->showPaginatedFieldOptions($field, $session);
+        }
+
+        // Show regular field prompt
+        $message = method_exists($field, 'getPrompt') ? $field->getPrompt() : "Enter {$fieldKey}:";
+
+        if ($this->config['show_progress'] ?? false) {
+            $progress = $this->calculateFormProgress($session);
+            $message = "Progress: {$progress}%\n\n" . $message;
+        }
+
+        $message = $this->addGlobalNavigation($message, $session);
+        return UssdResponse::continue($message);
+    }
+
+    protected function moveToNextField(UssdSession $session): UssdResponse
+    {
+        $currentIndex = $session->getFormData('_form_field_index', 0);
+        $session->setFormData('_form_field_index', $currentIndex + 1);
+        return $this->showCurrentField($session);
+    }
+
+    protected function completeForm(UssdSession $session): UssdResponse
+    {
+        try {
+            $formData = $session->getFormData();
+
+            if ($this->onComplete) {
+                if ($this->onComplete instanceof ActionInterface) {
+                    return $this->onComplete->execute(null, $session, $this->framework);
+                } elseif (is_callable($this->onComplete)) {
+                    return ($this->onComplete)($session, $this->framework);
+                }
+            }
+
+            return UssdResponse::end('Form completed successfully!');
+
+        } catch (Exception $e) {
+            return UssdResponse::end('Form completion error. Please try again.');
+        }
+    }
+
+    protected function calculateFormProgress(UssdSession $session): int
+    {
+        $totalFields = count($this->fields);
+        $currentIndex = $session->getFormData('_form_field_index', 0);
+
+        if ($totalFields === 0) {
+            return 100;
+        }
+
+        return min(100, intval(($currentIndex / $totalFields) * 100));
+    }
+
+    // Paginated menu processing
+    protected function processPaginatedMenu(string $input, UssdSession $session): UssdResponse
+    {
+        $state = $session->getMenuData('pagination_state', 'browsing');
+
+        return match ($state) {
+            'browsing' => $this->handlePaginatedInput($input, $session),
+            'searching' => $this->handleSearchInput($input, $session),
+            default => $this->handlePaginatedInput($input, $session),
+        };
+    }
+
+    protected function displayPaginatedMenu(UssdSession $session): UssdResponse
+    {
+        $session->setMenuData(['pagination_page' => 1, 'search_query' => '', 'pagination_state' => 'browsing']);
+        return $this->showPaginatedContent($session);
+    }
+
+    protected function handlePaginatedInput(string $input, UssdSession $session): UssdResponse
+    {
+        $currentPage = $session->getMenuData('pagination_page', 1);
+
+        // Handle navigation commands
+        if ($input === '00') { // Next page
+            $session->setMenuData(['pagination_page' => $currentPage + 1]);
+            return $this->showPaginatedContent($session);
+        }
+
+        if ($input === '98' && $this->type === 'searchable') { // Search
+            $session->setMenuData(['pagination_state' => 'searching']);
+            return UssdResponse::continue("Enter search term:");
+        }
+
+        // Handle item selection
+        if (is_numeric($input) && $input >= 1 && $input <= $this->config['items_per_page']) {
+            return $this->handleItemSelection($input, $session);
+        }
+
+        return $this->handleInvalidInput($input, $session);
+    }
+
+    protected function handleSearchInput(string $input, UssdSession $session): UssdResponse
+    {
+        if (empty($input)) {
+            return UssdResponse::continue('Enter search term:');
+        }
+
+        $session->setMenuData(['search_query' => $input, 'pagination_page' => 1, 'pagination_state' => 'browsing']);
+        return $this->showPaginatedContent($session);
+    }
+
+    protected function showPaginatedContent(UssdSession $session): UssdResponse
+    {
+        $data = $this->getProcessedData($session);
+        $currentPage = $session->getMenuData('pagination_page', 1);
+        $itemsPerPage = $this->config['items_per_page'];
+        $offset = ($currentPage - 1) * $itemsPerPage;
+
+        $pagedData = array_slice($data, $offset, $itemsPerPage, true);
+        $totalPages = ceil(count($data) / $itemsPerPage);
+
+        if (empty($pagedData)) {
+            $searchQuery = $session->getMenuData('search_query', '');
+            $message = empty($searchQuery) ? 'No items available.' : "No results found for '{$searchQuery}'.";
+            $message = $this->addGlobalNavigation($message, $session);
+            return UssdResponse::continue($message);
+        }
+
+        $message = $this->title . "\n";
+
+        $searchQuery = $session->getMenuData('search_query', '');
+        if (!empty($searchQuery)) {
+            $message .= "Search: '{$searchQuery}'\n";
+        }
+
+        $message .= "\n";
+
+        $index = 1;
+        foreach ($pagedData as $key => $item) {
+            $displayText = $this->formatItem($key, $item);
+            $message .= "{$index}. {$displayText}\n";
+            $index++;
+        }
+
+        $message .= "\n";
+
+        // Add navigation options
+        if ($totalPages > 1) {
+            if ($currentPage < $totalPages) {
+                $message .= "00. Next page\n";
+            }
+            $message .= "Page {$currentPage} of {$totalPages}\n";
+        }
+
+        if ($this->type === 'searchable') {
+            $message .= "98. Search\n";
+        }
+
+        $message = $this->addGlobalNavigation($message, $session);
+        return UssdResponse::continue($message);
+    }
+
+    protected function handleItemSelection(string $input, UssdSession $session): UssdResponse
+    {
+        $data = $this->getProcessedData($session);
+        $currentPage = $session->getMenuData('pagination_page', 1);
+        $itemsPerPage = $this->config['items_per_page'];
+        $offset = ($currentPage - 1) * $itemsPerPage;
+
+        $pagedData = array_slice($data, $offset, $itemsPerPage, true);
+        $dataKeys = array_keys($pagedData);
+        $inputIndex = (int) $input - 1;
+
+        if (!isset($dataKeys[$inputIndex])) {
+            return $this->handleInvalidInput($input, $session);
+        }
+
+        $selectedKey = $dataKeys[$inputIndex];
+        $selectedItem = $pagedData[$selectedKey];
+
+        // Execute action if defined
+        if (isset($this->actions[$selectedKey])) {
+            $action = $this->actions[$selectedKey];
+
+            if ($action instanceof ActionInterface) {
+                return $action->execute($selectedKey, $session, $this->framework);
+            } elseif (is_callable($action)) {
+                return $action($selectedKey, $selectedItem, $session, $this->framework);
+            }
+        }
+
+        // Default action
+        $displayText = $this->formatItem($selectedKey, $selectedItem);
+        return UssdResponse::end("You selected: {$displayText}");
+    }
+
+    // Conditional menu processing
+    protected function processConditionalMenu(string $input, UssdSession $session): UssdResponse
+    {
+        $selectedMenu = $this->getConditionalMenu($session);
+
+        if ($selectedMenu instanceof UssdMenuInterface) {
+            return $selectedMenu->process($input, $session);
+        }
+
+        return $this->handleInvalidInput($input, $session);
+    }
+
+    protected function displayConditionalMenu(UssdSession $session): UssdResponse
+    {
+        $selectedMenu = $this->getConditionalMenu($session);
+
+        if ($selectedMenu instanceof UssdMenuInterface) {
+            return $selectedMenu->display($session);
+        }
+
+        return UssdResponse::end('No suitable menu found.');
+    }
+
+    protected function getConditionalMenu(UssdSession $session): ?UssdMenuInterface
+    {
+        foreach ($this->conditions as $condition) {
+            if (($condition['condition'])($session)) {
+                $action = $condition['action'];
+
+                if ($action instanceof UssdMenuInterface) {
+                    return $action;
+                } elseif (is_string($action) && $this->framework) {
+                    return $this->framework->getMenu($action);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    // Wizard menu processing
+    protected function processWizardMenu(string $input, UssdSession $session): UssdResponse
+    {
+        $currentStep = $session->getMenuData('wizard_step', 0);
+        $steps = $this->config['wizard_steps'] ?? [];
+
+        if (!isset($steps[$currentStep])) {
+            return $this->completeWizard($session);
+        }
+
+        $step = $steps[$currentStep];
+
+        // Process current step
+        $result = $this->processWizardStep($step, $input, $session);
+
+        if ($result === true) {
+            // Move to next step
+            $session->setMenuData(['wizard_step' => $currentStep + 1]);
+            return $this->displayWizardMenu($session);
+        } elseif ($result instanceof UssdResponse) {
+            return $result;
+        }
+
+        // Stay on current step
+        return $this->displayCurrentWizardStep($session);
+    }
+
+    protected function displayWizardMenu(UssdSession $session): UssdResponse
+    {
+        $currentStep = $session->getMenuData('wizard_step', 0);
+        return $this->displayCurrentWizardStep($session);
+    }
+
+    protected function displayCurrentWizardStep(UssdSession $session): UssdResponse
+    {
+        $currentStep = $session->getMenuData('wizard_step', 0);
+        $steps = $this->config['wizard_steps'] ?? [];
+
+        if (!isset($steps[$currentStep])) {
+            return $this->completeWizard($session);
+        }
+
+        $step = $steps[$currentStep];
+        $message = $step['title'] ?? "Step " . ($currentStep + 1);
+
+        if (isset($step['content'])) {
+            $message .= "\n\n" . $step['content'];
+        }
+
+        $message = $this->addGlobalNavigation($message, $session);
+        return UssdResponse::continue($message);
+    }
+
+    protected function processWizardStep(array $step, string $input, UssdSession $session): mixed
+    {
+        if (isset($step['processor']) && is_callable($step['processor'])) {
+            return ($step['processor'])($input, $session, $this->framework);
+        }
+
+        // Default processing
+        return !empty($input);
+    }
+
+    protected function completeWizard(UssdSession $session): UssdResponse
+    {
+        if ($this->onComplete) {
+            if ($this->onComplete instanceof ActionInterface) {
+                return $this->onComplete->execute(null, $session, $this->framework);
+            } elseif (is_callable($this->onComplete)) {
+                return ($this->onComplete)($session, $this->framework);
+            }
+        }
+
+        return UssdResponse::end('Wizard completed successfully!');
+    }
+
+    // Helper methods
+    protected function getProcessedData(UssdSession $session): array
+    {
+        $data = [];
+
+        if (is_callable($this->dataProvider)) {
+            $data = ($this->dataProvider)($session);
+        } elseif (is_array($this->dataProvider)) {
+            $data = $this->dataProvider;
+        }
+
+        // Apply search filter if searching
+        $searchQuery = $session->getMenuData('search_query', '');
+        if (!empty($searchQuery) && $this->type === 'searchable') {
+            $data = $this->filterData($data, $searchQuery);
+        }
+
+        return $data;
+    }
+
+    protected function filterData(array $data, string $query): array
+    {
+        $query = strtolower(trim($query));
+        $searchFields = $this->config['search_fields'] ?? ['name'];
+        $filtered = [];
+
+        foreach ($data as $key => $item) {
+            $searchText = '';
+
+            if (is_array($item)) {
+                foreach ($searchFields as $field) {
+                    if (isset($item[$field])) {
+                        $searchText .= ' ' . strtolower($item[$field]);
+                    }
+                }
+            } else {
+                $searchText = strtolower((string) $item);
+            }
+
+            if (str_contains($searchText, $query)) {
+                $filtered[$key] = $item;
+            }
+        }
+
+        return $filtered;
+    }
+
+    protected function formatItem(mixed $key, mixed $item): string
+    {
+        if ($this->itemFormatter && is_callable($this->itemFormatter)) {
+            return ($this->itemFormatter)($key, $item);
+        }
+
+        if (is_array($item)) {
+            return $item['name'] ?? $item['title'] ?? $item['label'] ?? (string) $key;
+        }
+
+        return (string) $item;
+    }
+
+    protected function handleGlobalNavigation(string $input, UssdSession $session): ?UssdResponse
+    {
+        if (!$this->isGlobalNavigationEnabled()) {
+            return null;
+        }
+
+        $navigation = $this->config['navigation'] ?? [];
+        $navCommand = $this->findNavigationCommand($input);
+
+        if (!$navCommand) {
+            return null;
+        }
+
+        return match ($navCommand) {
+                $navigation['back'] ?? '99' => $this->handleBackNavigation($session),
+                $navigation['home'] ?? '0' => $this->handleHomeNavigation($session),
+            default => null,
+        };
+    }
+
+    protected function findNavigationCommand(string $input): ?string
+    {
+        $navigation = $this->config['navigation'] ?? [];
+        $navCommands = array_filter([
+            $navigation['back'] ?? '99',
+            $navigation['home'] ?? '0',
+        ]);
+
+        if (in_array(trim($input), $navCommands)) {
+            return trim($input);
+        }
+
+        if (str_contains($input, '*')) {
+            $parts = explode('*', $input);
+            foreach ($parts as $part) {
+                $trimmed = trim($part);
+                if (in_array($trimmed, $navCommands)) {
+                    return $trimmed;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    protected function handleBackNavigation(UssdSession $session): ?UssdResponse
+    {
+        // For forms, handle back navigation within form
+        if (in_array($this->type, ['form', 'enhanced_form', 'flexible_form'])) {
+            return $this->handleFormBackNavigation($session);
+        }
+
+        // For other types, use framework back navigation
+        if ($this->framework && $this->framework->goBack()) {
+            $currentMenu = $this->framework->getCurrentMenuPublic();
+            return $currentMenu->display($session);
+        }
+
+        return UssdResponse::continue('Cannot go back further.');
+    }
+
+    protected function handleFormBackNavigation(UssdSession $session): ?UssdResponse
+    {
+        $fieldIndex = $session->getFormData('_form_field_index', 0);
+
+        if ($fieldIndex <= 0) {
+            // Go back to previous menu
+            if ($this->framework && $this->framework->goBack()) {
+                $currentMenu = $this->framework->getCurrentMenuPublic();
+                return $currentMenu->display($session);
+            }
+            return UssdResponse::continue('Cannot go back further.');
+        }
+
+        // Go to previous field
+        $session->setFormData('_form_field_index', $fieldIndex - 1);
+        $session->setFormData('_form_state', 'collecting');
+        return $this->showCurrentField($session);
+    }
+
+    protected function handleHomeNavigation(UssdSession $session): ?UssdResponse
+    {
+        if ($this->framework) {
+            $defaultMenu = $this->config['default_menu'] ?? 'main';
+            $session->reset();
+            $this->framework->navigateToMenu($defaultMenu);
+            $homeMenu = $this->framework->getMenu($defaultMenu);
+            return $homeMenu->display($session);
+        }
+
+        return UssdResponse::continue('Home navigation not available.');
+    }
+
+    protected function handleInvalidInput(string $input, UssdSession $session): UssdResponse
+    {
+        $message = "Invalid option. Please try again.";
+        $message = $this->addGlobalNavigation($message, $session);
+        return UssdResponse::continue($message);
+    }
+
+    // Pagination and search for form fields
+    protected function handlePaginatedField(FormField $field, string $input, UssdSession $session): UssdResponse
+    {
+        if (empty($input)) {
+            return $this->showPaginatedFieldOptions($field, $session);
+        }
+
+        // Handle navigation commands
+        if ($input === '00') { // Next page
+            $currentPage = $session->getFormData('_pagination_page', 1);
+            $session->setFormData('_pagination_page', $currentPage + 1);
+            return $this->showPaginatedFieldOptions($field, $session);
+        }
+
+        if ($input === '98' && method_exists($field, 'isSearchable') && $field->isSearchable()) {
+            $session->setFormData('_form_state', 'searching');
+            return UssdResponse::continue('Search ' . $field->getName() . ":\nEnter search term:");
+        }
+
+        // Handle item selection
+        if (is_numeric($input) && $input >= 1 && $input <= $this->config['items_per_page']) {
+            return $this->handleFieldOptionSelection($field, $input, $session);
+        }
+
+        return $this->handleInvalidInput($input, $session);
+    }
+
+    protected function showPaginatedFieldOptions(FormField $field, UssdSession $session): UssdResponse
+    {
+        $options = method_exists($field, 'getOptions') ? $field->getOptions($session) : [];
+        $searchQuery = $session->getFormData('_search_query', '');
+
+        if (!empty($searchQuery)) {
+            $searchFields = method_exists($field, 'getSearchFields') ? $field->getSearchFields() : ['name'];
+            $options = $this->filterData($options, $searchQuery);
+        }
+
+        $currentPage = $session->getFormData('_pagination_page', 1);
+        $itemsPerPage = method_exists($field, 'getItemsPerPage') ? $field->getItemsPerPage() : $this->config['items_per_page'];
+        $offset = ($currentPage - 1) * $itemsPerPage;
+
+        $pagedOptions = array_slice($options, $offset, $itemsPerPage, true);
+        $totalPages = ceil(count($options) / $itemsPerPage);
+
+        if (empty($pagedOptions)) {
+            $message = empty($searchQuery) ? 'No options available.' : "No results found for '{$searchQuery}'.";
+            $message = $this->addGlobalNavigation($message, $session);
+            return UssdResponse::continue($message);
+        }
+
+        $message = method_exists($field, 'getPrompt') ? $field->getPrompt() . "\n" : $field->getName() . "\n";
+
+        if (!empty($searchQuery)) {
+            $message .= "Search: '{$searchQuery}'\n";
+        }
+
+        $message .= "\n";
+
+        $index = 1;
+        foreach ($pagedOptions as $key => $item) {
+            $displayText = $this->formatItem($key, $item);
+            $message .= "{$index}. {$displayText}\n";
+            $index++;
+        }
+
+        $message .= "\n";
+
+        if ($totalPages > 1) {
+            if ($currentPage < $totalPages) {
+                $message .= "00. Next page\n";
+            }
+            $message .= "Page {$currentPage} of {$totalPages}\n";
+        }
+
+        if (method_exists($field, 'isSearchable') && $field->isSearchable()) {
+            $message .= "98. Search\n";
+        }
+
+        $message = $this->addGlobalNavigation($message, $session);
+        return UssdResponse::continue($message);
+    }
+
+    protected function handleFieldOptionSelection(FormField $field, string $input, UssdSession $session): UssdResponse
+    {
+        $options = method_exists($field, 'getOptions') ? $field->getOptions($session) : [];
+        $searchQuery = $session->getFormData('_search_query', '');
+
+        if (!empty($searchQuery)) {
+            $searchFields = method_exists($field, 'getSearchFields') ? $field->getSearchFields() : ['name'];
+            $options = $this->filterData($options, $searchQuery);
+        }
+
+        $currentPage = $session->getFormData('_pagination_page', 1);
+        $itemsPerPage = method_exists($field, 'getItemsPerPage') ? $field->getItemsPerPage() : $this->config['items_per_page'];
+        $offset = ($currentPage - 1) * $itemsPerPage;
+
+        $pagedOptions = array_slice($options, $offset, $itemsPerPage, true);
+        $optionKeys = array_keys($pagedOptions);
+        $inputIndex = (int) $input - 1;
+
+        if (!isset($optionKeys[$inputIndex])) {
+            return $this->handleInvalidInput($input, $session);
+        }
+
+        $selectedKey = $optionKeys[$inputIndex];
+        $selectedItem = $pagedOptions[$selectedKey];
+
+        $valueToSave = is_array($selectedItem) ? ($selectedItem['id'] ?? $selectedKey) : $selectedKey;
+        $session->setFormData($field->getName(), $valueToSave);
+
+        if (is_array($selectedItem)) {
+            $session->setFormData($field->getName() . '_details', $selectedItem);
+        }
+
+        // Reset form state
+        $session->setFormData('_form_state', 'collecting');
+        $session->setFormData('_pagination_page', 1);
+        $session->setFormData('_search_query', '');
+
+        return $this->moveToNextField($session);
+    }
+
+    protected function handleFormPaginationInput(string $input, UssdSession $session): UssdResponse
+    {
+        $fieldIndex = $session->getFormData('_form_field_index', 0);
+        $fieldKeys = array_keys($this->fields);
+        $field = $this->fields[$fieldKeys[$fieldIndex]];
+
+        return $this->handlePaginatedField($field, $input, $session);
+    }
+
+    protected function handleFormSearchInput(string $input, UssdSession $session): UssdResponse
+    {
+        if (empty($input)) {
+            return UssdResponse::continue('Enter search term:');
+        }
+
+        $session->setFormData('_search_query', $input);
+        $session->setFormData('_form_state', 'paginating');
+        $session->setFormData('_pagination_page', 1);
+
+        $fieldIndex = $session->getFormData('_form_field_index', 0);
+        $fieldKeys = array_keys($this->fields);
+        $field = $this->fields[$fieldKeys[$fieldIndex]];
+
+        return $this->showPaginatedFieldOptions($field, $session);
+    }
+
+    // Global navigation trait implementation
+    protected function addGlobalNavigation(string $message, UssdSession $session): string
+    {
+        if (!$this->isGlobalNavigationEnabled()) {
+            return $message;
+        }
+
+        $navigation = $this->config['navigation'] ?? [];
+        $navOptions = [];
+
+        if ($this->shouldShowBack($session)) {
+            $backCommand = $navigation['back'] ?? '99';
+            $navOptions[] = "{$backCommand}. Back";
+        }
+
+        if ($this->shouldShowHome($session)) {
+            $homeCommand = $navigation['home'] ?? '0';
+            $navOptions[] = "{$homeCommand}. Main Menu";
+        }
+
+        if (!empty($navOptions)) {
+            $message .= "\n\n" . implode("\n", $navOptions);
+        }
+
+        return $message;
+    }
+
+    protected function isGlobalNavigationEnabled(): bool
+    {
+        return $this->config['global_navigation']['enabled'] ?? true;
+    }
+
+    protected function shouldShowBack(UssdSession $session): bool
+    {
+        return $session->canGoBack() ||
+            (in_array($this->type, ['form', 'enhanced_form', 'flexible_form']) &&
+                $session->getFormData('_form_field_index', 0) > 0);
+    }
+
+    protected function shouldShowHome(UssdSession $session): bool
+    {
+        return true; // Always show home option
+    }
+}

@@ -1,0 +1,300 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Moffhub\Ussd\Menus;
+use Moffhub\Ussd\Interfaces\ActionInterface;
+use Moffhub\Ussd\Interfaces\DataProviderInterface;
+use Moffhub\Ussd\UssdResponse;
+use Moffhub\Ussd\UssdSession;
+
+class PaginatedMenu extends UssdMenu
+{
+    protected string $title;
+    protected mixed $dataProvider;
+    protected $itemFormatter;
+    protected $itemAction;
+    protected int $maxSmsLength;
+    protected int $reserveChars;
+    protected bool $showNavigationHelp;
+    protected string $emptyMessage;
+    protected array $filters = [];
+
+    public function __construct($title, $dataProvider, $options = [])
+    {
+        parent::__construct($title);
+        $this->title = $title;
+        $this->dataProvider = $dataProvider;
+
+        $defaults = [
+            'max_sms_length' => 160,
+            'reserve_chars' => 50,
+            'item_formatter' => [$this, 'defaultItemFormatter'],
+            'item_action' => null,
+            'show_navigation_help' => true,
+            'empty_message' => 'No items found.',
+            'filters' => [],
+        ];
+
+        $options = array_merge($defaults, $options);
+
+        $this->maxSmsLength = $options['max_sms_length'];
+        $this->reserveChars = $options['reserve_chars'];
+        $this->itemFormatter = $options['item_formatter'];
+        $this->itemAction = $options['item_action'];
+        $this->showNavigationHelp = $options['show_navigation_help'];
+        $this->emptyMessage = $options['empty_message'];
+        $this->filters = $options['filters'];
+    }
+
+    protected function showInitial(UssdSession $session): UssdResponse
+    {
+        $session->setMenuData([
+            'current_page' => 1,
+            'total_pages' => 0,
+            'total_items' => 0,
+            'data' => [],
+        ]);
+
+        return $this->showPage(1, $session);
+    }
+
+    protected function processStep($input, $step, UssdSession $session): UssdResponse
+    {
+        $input = trim($input);
+
+        if ($this->isNavigationCommand($input)) {
+            return $this->handleNavigationCommand($input, $session);
+        }
+
+        return $this->handleItemSelection($input, $session);
+    }
+
+    protected function showPage($pageNumber, UssdSession $session): UssdResponse
+    {
+        $allData = $this->getData($session);
+
+        if (empty($allData)) {
+            return UssdResponse::continue($this->title."\n".$this->emptyMessage."\n".$this->getNavigationOptions());
+        }
+
+        $paginatedData = $this->calculateSmsBasedPagination($allData, $pageNumber);
+
+        $session->setMenuData([
+            'current_page' => $paginatedData['current_page'],
+            'total_pages' => $paginatedData['total_pages'],
+            'total_items' => count($allData),
+            'data' => $allData,
+        ]);
+
+        $response = $this->title."\n";
+        $response .= "Page {$paginatedData['current_page']} of {$paginatedData['total_pages']}\n\n";
+
+        foreach ($paginatedData['page_items'] as $key => $item) {
+            $response .= call_user_func($this->itemFormatter, $key, $item, $paginatedData['current_page'])."\n";
+        }
+
+        $response .= "\n".$this->getNavigationOptions($paginatedData['current_page'], $paginatedData['total_pages']);
+
+        if ($this->showNavigationHelp) {
+            $response .= "\n".$this->getNavigationHelp();
+        }
+
+        return UssdResponse::continue($response);
+    }
+
+    protected function getData(UssdSession $session)
+    {
+        if ($this->dataProvider instanceof DataProviderInterface) {
+            return $this->dataProvider->getData($session, $this->filters);
+        } elseif (is_callable($this->dataProvider)) {
+            return call_user_func($this->dataProvider, $session, $this->filters);
+        } elseif (is_array($this->dataProvider)) {
+            return $this->dataProvider;
+        }
+
+        return [];
+    }
+
+    protected function calculateSmsBasedPagination($allData, $requestedPage): array
+    {
+        $pages = [];
+        $currentPageItems = [];
+        $currentPageLength = 0;
+
+        $baseLength = strlen($this->title) + 30 + $this->reserveChars;
+        $availableLength = $this->maxSmsLength - $baseLength;
+        $pageNumber = 1;
+
+        foreach ($allData as $key => $item) {
+            $formattedItem = call_user_func($this->itemFormatter, $key, $item, $pageNumber);
+            $itemLength = strlen($formattedItem) + 1;
+
+            if ($currentPageLength + $itemLength > $availableLength && !empty($currentPageItems)) {
+                $pages[$pageNumber] = $currentPageItems;
+                $pageNumber++;
+                $currentPageItems = [];
+                $currentPageLength = 0;
+            }
+
+            $currentPageItems[$key] = $item;
+            $currentPageLength += $itemLength;
+        }
+
+        if (!empty($currentPageItems)) {
+            $pages[$pageNumber] = $currentPageItems;
+        }
+
+        $totalPages = count($pages);
+        $requestedPage = max(1, min($requestedPage, $totalPages));
+
+        return [
+            'current_page' => $requestedPage,
+            'total_pages' => $totalPages,
+            'page_items' => $pages[$requestedPage] ?? [],
+            'all_pages' => $pages,
+        ];
+    }
+
+    protected function isNavigationCommand($input): bool
+    {
+        $navCommands = array_filter([
+            $this->getNavigationCommand('next'),
+            $this->getNavigationCommand('back'),
+            $this->getNavigationCommand('home'),
+        ]);
+
+        return in_array($input, $navCommands, true);
+    }
+
+    protected function handleNavigationCommand($command, UssdSession $session): UssdResponse
+    {
+        $menuData = $session->getMenuData();
+        $currentPage = $menuData['current_page'] ?? 1;
+        $totalPages = $menuData['total_pages'] ?? 1;
+
+        $navConfig = [
+            'next' => $this->getNavigationCommand('next'),
+            'back' => $this->getNavigationCommand('back'),
+            'home' => $this->getNavigationCommand('home'),
+            'default_menu' => $this->getNavigationCommand('default_menu'),
+        ];
+
+        if ($command === $navConfig['back']) {
+            if ($this->goBack()) {
+                return UssdResponse::continue('Going back...');
+            }
+
+            return UssdResponse::end('Cannot go back further.');
+        } elseif ($command === $navConfig['home']) {
+            $this->framework->navigateToMenu($this->config['default_menu']);
+
+            return $this->framework->getMenu($this->config['default_menu'])->process('', $session);
+        } elseif ($command === $navConfig['next']) {
+            if ($currentPage < $totalPages) {
+                return $this->showPage($currentPage + 1, $session);
+            }
+
+            return UssdResponse::continue('Already on last page.');
+        }
+
+        return UssdResponse::continue('Invalid command.');
+    }
+
+    protected function handleItemSelection($input, UssdSession $session): UssdResponse
+    {
+        if (!is_numeric($input)) {
+            return UssdResponse::continue('Invalid selection. Please try again.');
+        }
+
+        $menuData = $session->getMenuData();
+        $allData = $menuData['data'] ?? [];
+
+        $selectedItem = null;
+        $selectedKey = null;
+
+        foreach ($allData as $key => $item) {
+            if ($key == $input || (is_array($item) && isset($item['id']) && $item['id'] == $input)) {
+                $selectedItem = $item;
+                $selectedKey = $key;
+                break;
+            }
+        }
+
+        if (!$selectedItem) {
+            return UssdResponse::continue('Item not found. Please try again.');
+        }
+
+        if ($this->itemAction) {
+            if ($this->itemAction instanceof ActionInterface) {
+                return $this->itemAction->execute($selectedKey, $session, $this->framework);
+            } elseif (is_callable($this->itemAction)) {
+                return call_user_func($this->itemAction, $selectedKey, $selectedItem, $session, $this->framework);
+            }
+        }
+
+        $itemDisplay = is_array($selectedItem) ? json_encode($selectedItem) : $selectedItem;
+
+        return UssdResponse::end('You selected: '.$itemDisplay);
+    }
+
+    protected function getNavigationOptions($currentPage = null, $totalPages = null): string
+    {
+        $options = [];
+        $navConfig = $this->config['navigation'];
+
+        if ($currentPage && $totalPages && $currentPage < $totalPages) {
+            $options[] = $navConfig['next'].' Next';
+        }
+
+        $options[] = $navConfig['back'].' Back';
+        $options[] = $navConfig['home'].' Home';
+
+        return implode(' | ', $options);
+    }
+
+    protected function getNavigationHelp(): string
+    {
+        $navConfig = $this->config['navigation'];
+
+        return "Commands: {$navConfig['back']}=Back, {$navConfig['home']}=Home, {$navConfig['next']}=Next";
+    }
+
+    protected function defaultItemFormatter($key, $item, $page = 1): string
+    {
+        if (is_array($item)) {
+            if (isset($item['name'])) {
+                return "$key. {$item['name']}";
+            } elseif (isset($item['title'])) {
+                return "$key. {$item['title']}";
+            } elseif (isset($item['description'])) {
+                return "$key. {$item['description']}";
+            } else {
+                return "$key. ".json_encode($item);
+            }
+        }
+
+        return "$key. $item";
+    }
+
+    public function setFilters(array $filters): static
+    {
+        $this->filters = $filters;
+
+        return $this;
+    }
+
+    public function setItemFormatter($formatter): static
+    {
+        $this->itemFormatter = $formatter;
+
+        return $this;
+    }
+
+    public function setItemAction($action): static
+    {
+        $this->itemAction = $action;
+
+        return $this;
+    }
+}

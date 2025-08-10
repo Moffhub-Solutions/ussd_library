@@ -1,0 +1,53 @@
+{
+    "name": "moffhub/ussd",
+    "description": "A package to make it painless to build easy scalable ussd apps",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Moffhub\\Ussd\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Moffhub\\Ussd\\Tests\\": "tests/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Moffat Munene",
+            "email": "moffmu@gmail.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {
+        "php": "^8.4",
+        "laravel/framework": "^11.0",
+        "sourcetoad/enhanced-resources": "^7.0",
+        "sourcetoad/rule-helper-for-laravel": "^5.2"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.0",
+        "laravel/pint": "^1.17",
+        "orchestra/testbench": "v9.4.0"
+    },
+    "scripts": {
+        "check-code": [
+            "@lint",
+            "@phpstan",
+            "@test"
+        ],
+        "lint": [
+            "vendor/bin/pint --test"
+        ],
+        "lint:fix": [
+            "vendor/bin/pint"
+        ],
+        "phpstan": [
+            "vendor/bin/phpstan"
+        ],
+        "test": [
+            "vendor/bin/phpunit"
+        ]
+    }
+}

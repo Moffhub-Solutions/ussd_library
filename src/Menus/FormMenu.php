@@ -1,0 +1,270 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Moffhub\Ussd\Menus;
+
+use Exception;
+use Moffhub\Ussd\Helpers\FormField;
+use Moffhub\Ussd\Interfaces\ActionInterface;
+use Moffhub\Ussd\UssdResponse;
+use Moffhub\Ussd\UssdSession;
+
+class FormMenu extends UssdMenu
+{
+    protected string $title;
+    protected array $fields = [];
+    protected $onComplete;
+
+    public function __construct($title, $fields = [], $onComplete = null)
+    {
+        parent::__construct($title);
+        $this->title = $title;
+        $this->setFields($fields);
+        $this->onComplete = $onComplete;
+    }
+
+    public function setFields($fields): static
+    {
+        foreach ($fields as $name => $config) {
+            if ($config instanceof FormField) {
+                $this->fields[$name] = $config;
+            } else {
+                $prompt = $config['prompt'] ?? "Enter {$name}:";
+                $this->fields[$name] = new FormField($name, $prompt, $config);
+            }
+        }
+
+        return $this;
+    }
+
+    protected function showInitial(UssdSession $session): UssdResponse
+    {
+        if (empty($this->fields)) {
+            return UssdResponse::end('No fields defined for this form.');
+        }
+
+        $session->setStep(0);
+
+        $firstField = reset($this->fields);
+        $message = $this->title ? $this->title."\n\n".$firstField->prompt : $firstField->prompt;
+        $message = $this->addGlobalNavigation($message, $session);
+
+        return UssdResponse::continue($message);
+    }
+
+    protected function processStep($input, $step, UssdSession $session): UssdResponse
+    {
+        $navigation = $this->config['navigation'] ?? [];
+        $navCommands = array_filter([
+            $navigation['back'] ?? '99',
+            $navigation['home'] ?? '0',
+        ]);
+
+        if (in_array($input, $navCommands)) {
+            $navResponse = $this->processGlobalNavigation($input, $session);
+            if ($navResponse !== null) {
+                return $navResponse;
+            }
+        }
+
+        $fieldKeys = array_keys($this->fields);
+
+        if ($step >= count($fieldKeys)) {
+            return $this->completeForm($session);
+        }
+
+        $fieldKey = $fieldKeys[$step];
+        $field = $this->fields[$fieldKey];
+
+        if (empty($input)) {
+            if ($step === 0) {
+                $message = $field->prompt;
+                $message = $this->addGlobalNavigation($message, $session);
+
+                return UssdResponse::continue($message);
+            }
+
+            if ($field->isOptional()) {
+                $session->setFormData($fieldKey, '');
+
+                return $this->moveToNextField($session);
+            }
+
+            $message = "This field is required.\n\n".$field->prompt;
+            $message = $this->addGlobalNavigation($message, $session);
+
+            return UssdResponse::continue($message);
+        }
+
+        $validation = $field->validate($input);
+        if ($validation !== true) {
+            $message = $validation."\n\n".$field->prompt;
+            $message = $this->addGlobalNavigation($message, $session);
+
+            return UssdResponse::continue($message);
+        }
+
+        if ($field->isPaginated()) {
+            return $this->handlePaginatedField($field, $input, $session);
+        }
+
+        $session->setFormData($fieldKey, $input);
+
+        return $this->moveToNextField($session);
+    }
+
+    protected function moveToNextField(UssdSession $session): UssdResponse
+    {
+        $currentStep = $session->getStep();
+        $nextStep = $currentStep + 1;
+        $fieldKeys = array_keys($this->fields);
+
+        if ($nextStep >= count($fieldKeys)) {
+            return $this->completeForm($session);
+        }
+
+        $session->setStep($nextStep);
+
+        $nextFieldKey = $fieldKeys[$nextStep];
+        $nextField = $this->fields[$nextFieldKey];
+
+        $message = $nextField->prompt;
+        $message = $this->addGlobalNavigation($message, $session);
+
+        return UssdResponse::continue($message);
+    }
+
+    protected function handlePaginatedField(FormField $field, string $input, UssdSession $session): UssdResponse
+    {
+        try {
+            $framework = $this->framework;
+            $menuName = '__form_paginated_'.$field->name;
+
+            $options = is_callable($field->options)
+                ? call_user_func($field->options, $session)
+                : $field->options;
+
+            if (empty($options)) {
+                $message = "No options available for this field.\n\n".$field->prompt;
+                $message = $this->addGlobalNavigation($message, $session);
+
+                return UssdResponse::continue($message);
+            }
+
+            $paginatedMenu = new PaginatedMenu(
+                $field->prompt,
+                $options,
+                [
+                    'item_formatter' => function ($key, $item) {
+                        if (is_array($item)) {
+                            return $item['name'] ?? json_encode($item);
+                        }
+
+                        return (string) $item;
+                    },
+                    'item_action' => function ($key, $item, $session, $framework) use ($field) {
+                        $value = is_array($item) && isset($item['id']) ? $item['id'] : $key;
+                        $session->setFormData($field->name, $value);
+
+                        $formMenu = $framework->getMenu($session->getCurrentMenu());
+
+                        return $formMenu->moveToNextField($session);
+                    },
+                ]
+            );
+
+            $paginatedMenu->setFramework($framework);
+            $paginatedMenu->setConfig($this->config);
+
+            $framework->registerMenu($menuName, $paginatedMenu);
+            $framework->navigateToMenu($menuName);
+
+            return $paginatedMenu->process($input, $session);
+
+        } catch (Exception $e) {
+            $message = "Error processing field options. Please try again.\n\n".$field->prompt;
+            $message = $this->addGlobalNavigation($message, $session);
+
+            return UssdResponse::continue($message);
+        }
+    }
+
+    protected function completeForm(UssdSession $session): UssdResponse
+    {
+        try {
+            $formData = $session->getFormData();
+
+            if ($this->onComplete) {
+                if ($this->onComplete instanceof ActionInterface) {
+                    return $this->onComplete->execute(null, $session, $this->framework);
+                } elseif (is_callable($this->onComplete)) {
+                    return ($this->onComplete)($session, $this->framework);
+                }
+            }
+
+            return UssdResponse::end('Form completed successfully!');
+
+        } catch (Exception $e) {
+            return UssdResponse::end('Form completion error. Please try again.');
+        }
+    }
+
+    protected function handleBackNavigation(UssdSession $session): ?UssdResponse
+    {
+        $currentStep = $session->getStep();
+
+        if ($currentStep <= 0) {
+            return parent::processGlobalNavigation('99', $session);
+        }
+
+        $prevStep = $currentStep - 1;
+        $session->setStep($prevStep);
+
+        $fieldKeys = array_keys($this->fields);
+        $prevFieldKey = $fieldKeys[$prevStep];
+        $prevField = $this->fields[$prevFieldKey];
+
+        $message = "Back to previous field:\n\n".$prevField->prompt;
+        $message = $this->addGlobalNavigation($message, $session);
+
+        return UssdResponse::continue($message);
+    }
+
+    protected function processGlobalNavigation(string $input, UssdSession $session): ?UssdResponse
+    {
+        $navigation = $this->config['navigation'] ?? [];
+
+        if ($input === ($navigation['back'] ?? '99')) {
+            return $this->handleBackNavigation($session);
+        }
+
+        return parent::processGlobalNavigation($input, $session);
+    }
+
+    protected function getFormProgress(UssdSession $session): int
+    {
+        $totalFields = count($this->fields);
+        $currentStep = $session->getStep();
+
+        if ($totalFields === 0) {
+            return 100;
+        }
+
+        return min(100, (int) (($currentStep / $totalFields) * 100));
+    }
+
+    protected function addProgressIndicator(string $message, UssdSession $session): string
+    {
+        $showProgress = $this->config['form']['show_progress'] ?? false;
+
+        if (!$showProgress) {
+            return $message;
+        }
+
+        $progress = $this->getFormProgress($session);
+        $progressText = "Progress: {$progress}%";
+
+        return $progressText."\n\n".$message;
+    }
+}

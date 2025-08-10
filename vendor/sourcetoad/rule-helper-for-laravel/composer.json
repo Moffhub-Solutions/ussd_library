@@ -1,0 +1,46 @@
+{
+    "name": "sourcetoad/rule-helper-for-laravel",
+    "description": "Rule helper for Laravel",
+    "type": "library",
+    "license": "MIT",
+    "minimum-stability": "stable",
+    "require": {
+        "php": "^8.2",
+        "laravel/framework": "^11.23.2"
+    },
+    "require-dev": {
+        "ext-json": "*",
+        "orchestra/testbench": "^9.4",
+        "phpunit/phpunit": "^10.5",
+        "laravel/pint": "1.13.9",
+        "larastan/larastan": "^2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Sourcetoad\\RuleHelper\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Sourcetoad\\RuleHelper\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Sourcetoad\\RuleHelper\\RuleHelperServiceProvider"
+            ]
+        }
+    },
+    "scripts": {
+        "check-code": [
+            "@lint",
+            "@phpstan",
+            "@test"
+        ],
+        "lint": "@php vendor/bin/pint --test",
+        "lint:fix": "@php vendor/bin/pint",
+        "phpstan": "@php vendor/bin/phpstan analyse",
+        "test": "@php vendor/bin/phpunit"
+    }
+}
