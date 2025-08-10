@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Moffhub\Ussd\Actions;
 
 use Exception;
+use Moffhub\Ussd\Interfaces\ActionInterface;
 use Moffhub\Ussd\UssdFramework;
 use Moffhub\Ussd\UssdResponse;
 use Moffhub\Ussd\UssdSession;
@@ -30,7 +31,7 @@ class SaveDataAction implements ActionInterface
         $this->errorMessage = $errorMessage;
     }
 
-    public function execute(string $input, UssdSession $session, UssdFramework $framework): UssdResponse
+    public function execute(string|null $input, UssdSession $session, UssdFramework $framework): UssdResponse
     {
         try {
             $formData = $session->getFormData();

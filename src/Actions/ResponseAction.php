@@ -25,7 +25,7 @@ class ResponseAction implements ActionInterface
         $this->type = $type;
     }
 
-    public function execute(string $input, UssdSession $session, UssdFramework $framework): UssdResponse
+    public function execute(string|null $input, UssdSession $session, UssdFramework $framework): UssdResponse
     {
         return new UssdResponse($this->message, $this->type);
     }

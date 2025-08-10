@@ -2,7 +2,8 @@
 
 namespace Moffhub\Ussd\Builders;
 
-use App\Libraries\Ussd\Menus\SimpleMenu;
+use Closure;
+use Moffhub\Ussd\Menus\SimpleMenu;
 
 class MenuBuilder
 {
@@ -14,7 +15,7 @@ class MenuBuilder
 
     protected array $actions = [];
 
-    protected $onComplete = null;
+    protected ?Closure $onComplete = null;
 
     protected array $config = [];
 
@@ -54,7 +55,7 @@ class MenuBuilder
         return $this;
     }
 
-    public function onComplete(callable $callback): self
+    public function onComplete(Closure $callback): self
     {
         $this->onComplete = $callback;
 

@@ -2,12 +2,23 @@
 
 namespace Moffhub\Ussd\Builders;
 
+use Closure;
+use Moffhub\Ussd\Interfaces\UssdMenuInterface;
+use Moffhub\Ussd\Menus\ConditionalMenu;
+use Moffhub\Ussd\Menus\PaginatedMenu;
+use Moffhub\Ussd\Menus\SearchablePaginatedMenu;
+use Moffhub\Ussd\Menus\SimpleMenu;
+use Moffhub\Ussd\Menus\UssdMenu;
+use Moffhub\Ussd\Menus\WizardMenu;
 use Moffhub\Ussd\UssdFramework;
 
 class UssdBuilder
 {
     protected UssdFramework $framework;
 
+    /**
+     * @var array<string, UssdMenu>
+     */
     protected array $menus = [];
 
     public function __construct(?UssdFramework $framework = null)
@@ -15,9 +26,6 @@ class UssdBuilder
         $this->framework = $framework ?: new UssdFramework;
     }
 
-    /**
-     * Create a new builder with configuration
-     */
     public static function create(array $config = []): self
     {
         $framework = new UssdFramework($config);
@@ -25,13 +33,11 @@ class UssdBuilder
         return new static($framework);
     }
 
-    /**
-     * Define a menu using a callback
-     */
-    public function menu(string $name, ?callable $callback = null): static
+    public function menu(string $name, ?Closure $callback = null): static
     {
         if ($callback) {
-            $menuBuilder = new UnifiedMenuBuilder($name);
+            $ussdMenu = new UssdMenu($name);
+            $menuBuilder = new UnifiedMenuBuilder($ussdMenu, $this);
             $callback($menuBuilder);
             $this->menus[$name] = $menuBuilder->build();
         }
@@ -39,9 +45,6 @@ class UssdBuilder
         return $this;
     }
 
-    /**
-     * Create a simple menu with options and actions
-     */
     public function simpleMenu(string $name, string $title, array $options = [], array $actions = []): static
     {
         $this->menus[$name] = new SimpleMenu($title, $options, $actions);
@@ -49,9 +52,6 @@ class UssdBuilder
         return $this;
     }
 
-    /**
-     * Create a form menu with fields and completion callback
-     */
     public function formMenu(string $name, string $title, array $fields = [], ?callable $onComplete = null): static
     {
         $menu = new UssdMenu($title);
@@ -64,9 +64,6 @@ class UssdBuilder
         return $this;
     }
 
-    /**
-     * Create an enhanced form menu with flexible field types and advanced features
-     */
     public function enhancedFormMenu(string $name, string $title, array $fields = [], ?callable $onComplete = null): static
     {
         $menu = new UssdMenu($title);
@@ -80,9 +77,6 @@ class UssdBuilder
         return $this;
     }
 
-    /**
-     * Create a flexible form with field builder
-     */
     public function flexibleForm(string $name, string $title, ?callable $callback = null, ?callable $onComplete = null): static
     {
         $formBuilder = new FlexibleFormBuilder($title, $onComplete);
@@ -96,9 +90,6 @@ class UssdBuilder
         return $this;
     }
 
-    /**
-     * Create a paginated menu with data provider
-     */
     public function paginatedMenu(string $name, string $title, mixed $dataProvider, array $options = []): static
     {
         $this->menus[$name] = new PaginatedMenu($title, $dataProvider, $options);
@@ -106,9 +97,6 @@ class UssdBuilder
         return $this;
     }
 
-    /**
-     * Create a searchable paginated menu
-     */
     public function searchableMenu(string $name, string $title, mixed $dataProvider, array $options = []): static
     {
         $options['searchable'] = true;
@@ -117,9 +105,6 @@ class UssdBuilder
         return $this;
     }
 
-    /**
-     * Create a conditional menu with dynamic behavior
-     */
     public function conditionalMenu(string $name, mixed $defaultMenu = null): ConditionalMenuBuilder
     {
         $menu = new ConditionalMenu($defaultMenu);
@@ -128,9 +113,6 @@ class UssdBuilder
         return new ConditionalMenuBuilder($menu, $this);
     }
 
-    /**
-     * Create a wizard menu with multiple steps
-     */
     public function wizardMenu(string $name, string $title, array $steps = [], ?callable $onComplete = null): static
     {
         $this->menus[$name] = new WizardMenu($title, $steps, $onComplete);
@@ -138,9 +120,6 @@ class UssdBuilder
         return $this;
     }
 
-    /**
-     * Create a unified menu with all advanced features
-     */
     public function unifiedMenu(string $name, string $title): UnifiedMenuBuilder
     {
         $menu = new UssdMenu($title);
@@ -149,9 +128,6 @@ class UssdBuilder
         return new UnifiedMenuBuilder($menu, $this);
     }
 
-    /**
-     * Add a custom menu instance
-     */
     public function customMenu(string $name, UssdMenuInterface $menu): static
     {
         $this->menus[$name] = $menu;
@@ -159,9 +135,6 @@ class UssdBuilder
         return $this;
     }
 
-    /**
-     * Add a before process hook
-     */
     public function onBeforeProcess(callable $callback): static
     {
         $this->framework->addHook('before_process', $callback);
@@ -169,9 +142,6 @@ class UssdBuilder
         return $this;
     }
 
-    /**
-     * Add an after process hook
-     */
     public function onAfterProcess(callable $callback): static
     {
         $this->framework->addHook('after_process', $callback);
@@ -179,9 +149,6 @@ class UssdBuilder
         return $this;
     }
 
-    /**
-     * Add an error hook
-     */
     public function onError(callable $callback): static
     {
         $this->framework->addHook('on_error', $callback);
@@ -189,9 +156,6 @@ class UssdBuilder
         return $this;
     }
 
-    /**
-     * Add a session recovery hook
-     */
     public function onSessionRecovery(callable $callback): static
     {
         $this->framework->addHook('session_recovery', $callback);
@@ -199,15 +163,11 @@ class UssdBuilder
         return $this;
     }
 
-    /**
-     * Configure session management
-     */
     public function configureSession(array $config): static
     {
         $currentConfig = $this->framework->getConfig();
         $mergedConfig = array_merge($currentConfig, $config);
 
-        // Update framework configuration
         $reflection = new \ReflectionClass($this->framework);
         $configProperty = $reflection->getProperty('config');
         $configProperty->setAccessible(true);
@@ -216,9 +176,6 @@ class UssdBuilder
         return $this;
     }
 
-    /**
-     * Enable session continuation with recovery options
-     */
     public function enableSessionContinuation(bool $enabled = true): static
     {
         return $this->configureSession([
@@ -228,41 +185,26 @@ class UssdBuilder
         ]);
     }
 
-    /**
-     * Configure caching options
-     */
     public function configureCaching(array $config): static
     {
         return $this->configureSession(['cache' => $config]);
     }
 
-    /**
-     * Configure security options
-     */
     public function configureSecurity(array $config): static
     {
         return $this->configureSession(['security' => $config]);
     }
 
-    /**
-     * Configure analytics options
-     */
     public function configureAnalytics(array $config): static
     {
         return $this->configureSession(['analytics' => $config]);
     }
 
-    /**
-     * Set global navigation options
-     */
     public function configureNavigation(array $navigationConfig): static
     {
         return $this->configureSession(['navigation' => $navigationConfig]);
     }
 
-    /**
-     * Build and return the configured framework
-     */
     public function build(): UssdFramework
     {
         $this->framework->registerMenus($this->menus);
@@ -270,17 +212,11 @@ class UssdBuilder
         return $this->framework;
     }
 
-    /**
-     * Get the framework instance
-     */
     public function getFramework(): UssdFramework
     {
         return $this->framework;
     }
 
-    /**
-     * Quick setup methods for common configurations
-     */
     public function quickSetup(): static
     {
         return $this->enableSessionContinuation()
@@ -289,9 +225,6 @@ class UssdBuilder
             ->configureAnalytics(['enabled' => true, 'track_user_journey' => true]);
     }
 
-    /**
-     * Setup for high-performance scenarios
-     */
     public function highPerformanceSetup(): static
     {
         return $this->configureCaching([
@@ -305,9 +238,6 @@ class UssdBuilder
             ]);
     }
 
-    /**
-     * Setup for development/testing
-     */
     public function developmentSetup(): static
     {
         return $this->configureSession([

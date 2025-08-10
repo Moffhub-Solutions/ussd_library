@@ -23,11 +23,9 @@ class CallbackAction implements ActionInterface
     {
         if (is_callable($this->callback)) {
             $result = call_user_func($this->callback, $input, $session, $framework);
-            // Ensure we always return a UssdResponse
             if ($result instanceof UssdResponse) {
                 return $result;
             }
-            // If callback returns a string, wrap it in a response
             if (is_string($result)) {
                 return UssdResponse::end($result);
             }

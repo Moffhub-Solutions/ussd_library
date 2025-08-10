@@ -15,5 +15,9 @@ class UssdServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__.'/Config/ussd.php' => config_path('ussd.php'),
         ], 'config');
+
+        $this->publishes([
+            __DIR__.'/../database/migrations/create_ussd_tables' => database_path('migrations/create_ussd_tables.php'),
+        ], 'migrations');
     }
 }

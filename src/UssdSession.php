@@ -3,6 +3,7 @@
 namespace Moffhub\Ussd;
 
 use Carbon\Carbon;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -24,7 +25,7 @@ class UssdSession
 
     protected ?array $recoveryContext = null;
 
-    protected Carbon $lastAccessTime;
+    protected Carbon|null $lastAccessTime;
 
     protected array $sessionMetrics = [];
 
@@ -67,7 +68,6 @@ class UssdSession
     protected function getDefaultSessionData(): array
     {
         return [
-            // Basic session data
             'current_menu' => null,
             'menu_history' => [],
             'form_data' => [],
@@ -80,7 +80,6 @@ class UssdSession
             'access_count' => 0,
             'session_flags' => [],
 
-            // Enhanced session data
             'session_metadata' => [
                 'version' => '2.0',
                 'created_at' => Carbon::now()->toISOString(),
@@ -358,7 +357,7 @@ class UssdSession
     {
         $history = $this->get('menu_history', []);
 
-        return ! empty($history);
+        return !empty($history);
     }
 
     public function reset(): void
@@ -687,7 +686,7 @@ class UssdSession
 
         if ($exists) {
             $cachedData = Cache::get($this->cacheKey);
-            if (! is_array($cachedData)) {
+            if (!is_array($cachedData)) {
                 Log::warning('UnifiedUssdSession: Invalid cached session data, cleaning up', [
                     'phone' => $this->phoneNumber,
                 ]);
@@ -727,7 +726,7 @@ class UssdSession
                 'timeout' => $timeout,
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('UnifiedUssdSession: Failed to save session', [
                 'phone' => $this->phoneNumber,
                 'error' => $e->getMessage(),
@@ -757,7 +756,7 @@ class UssdSession
                     'created_at' => DB::raw('COALESCE(created_at, NOW())'),
                 ]
             );
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to save session to user_sessions table', [
                 'error' => $e->getMessage(),
                 'session_id' => $this->sessionId,

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Moffhub\Ussd\Services;
 
 use Carbon\Carbon;
+use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -56,7 +57,7 @@ class UssdDatabaseService
             );
 
             return true;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to save rate limit data', [
                 'error' => $e->getMessage(),
                 'phone_number' => $phoneNumber,
@@ -74,7 +75,7 @@ class UssdDatabaseService
         string $severity = 'low',
         ?string $sessionId = null
     ): bool {
-        if (! $this->config['enable_database_logging']) {
+        if (!$this->config['enable_database_logging']) {
             return false;
         }
 
@@ -97,7 +98,7 @@ class UssdDatabaseService
             ]);
 
             return true;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to save security event', [
                 'error' => $e->getMessage(),
                 'event_type' => $eventType,
@@ -141,7 +142,7 @@ class UssdDatabaseService
             );
 
             return true;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to save user session', [
                 'error' => $e->getMessage(),
                 'session_id' => $sessionId,
@@ -177,7 +178,7 @@ class UssdDatabaseService
             ]);
 
             return true;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to save session analytics', [
                 'error' => $e->getMessage(),
                 'event_type' => $eventType,
@@ -215,7 +216,7 @@ class UssdDatabaseService
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to save recovery log', [
                 'error' => $e->getMessage(),
                 'phone_number' => $phoneNumber,
@@ -244,7 +245,7 @@ class UssdDatabaseService
                 ]);
 
             return true;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to complete recovery log', [
                 'error' => $e->getMessage(),
                 'log_id' => $logId,
@@ -281,7 +282,7 @@ class UssdDatabaseService
             ]);
 
             return true;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to save performance metrics', [
                 'error' => $e->getMessage(),
                 'action' => $action,
@@ -293,7 +294,7 @@ class UssdDatabaseService
 
     public function saveBusinessMetrics(
         string $metricName,
-        $metricValue,
+        string|int $metricValue,
         string $metricCategory = 'general',
         ?string $phoneNumber = null,
         ?string $sessionId = null,
@@ -319,7 +320,7 @@ class UssdDatabaseService
             ]);
 
             return true;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to save business metrics', [
                 'error' => $e->getMessage(),
                 'metric_name' => $metricName,
@@ -388,7 +389,7 @@ class UssdDatabaseService
             }
 
             return true;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to update menu statistics', [
                 'error' => $e->getMessage(),
                 'menu_name' => $menuName,
@@ -421,7 +422,7 @@ class UssdDatabaseService
                     'deleted_records' => $deleted,
                     'cutoff_date' => $cutoffDate->toDateString(),
                 ]);
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 $results[$table] = [
                     'error' => $e->getMessage(),
                 ];
@@ -468,7 +469,7 @@ class UssdDatabaseService
                     ->pluck('violations', 'date')
                     ->toArray(),
             ];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to get rate limit stats', ['error' => $e->getMessage()]);
 
             return ['error' => 'Failed to fetch rate limit stats'];
@@ -495,7 +496,7 @@ class UssdDatabaseService
                     ->where('status', 'open')
                     ->count(),
             ];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to get security event stats', ['error' => $e->getMessage()]);
 
             return ['error' => 'Failed to fetch security event stats'];
@@ -529,7 +530,7 @@ class UssdDatabaseService
                     ->pluck('count', 'current_menu')
                     ->toArray(),
             ];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to get user session stats', ['error' => $e->getMessage()]);
 
             return ['error' => 'Failed to fetch user session stats'];
@@ -557,7 +558,7 @@ class UssdDatabaseService
                     ->pluck('count', 'date')
                     ->toArray(),
             ];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to get analytics stats', ['error' => $e->getMessage()]);
 
             return ['error' => 'Failed to fetch analytics stats'];
@@ -586,7 +587,7 @@ class UssdDatabaseService
                     ->pluck('count', 'recovery_method')
                     ->toArray(),
             ];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to get recovery log stats', ['error' => $e->getMessage()]);
 
             return ['error' => 'Failed to fetch recovery log stats'];
@@ -610,7 +611,7 @@ class UssdDatabaseService
                 'slow_operations' => $query->where('duration_ms', '>', 1000)
                     ->count(),
             ];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to get performance stats', ['error' => $e->getMessage()]);
 
             return ['error' => 'Failed to fetch performance stats'];
@@ -635,7 +636,7 @@ class UssdDatabaseService
                     ->pluck(['count' => 'count', 'avg_value' => 'avg_value'], 'metric_name')
                     ->toArray(),
             ];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to get business metrics stats', ['error' => $e->getMessage()]);
 
             return ['error' => 'Failed to fetch business metrics stats'];

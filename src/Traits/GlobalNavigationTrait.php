@@ -96,9 +96,6 @@ trait GlobalNavigationTrait
         return $currentMenu !== $defaultMenu;
     }
 
-    /**
-     * FIXED: Enhanced global navigation processing
-     */
     protected function processGlobalNavigation(string $input, UssdSession $session): ?UssdResponse
     {
         if (! $this->isGlobalNavigationEnabled()) {

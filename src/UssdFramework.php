@@ -19,7 +19,7 @@ class UssdFramework
     /** @var array<string, UssdMenuInterface> */
     protected array $menus = [];
 
-    protected UssdSession $session;
+    protected ?UssdSession $session;
 
     protected ?Request $request = null;
 
@@ -144,7 +144,6 @@ class UssdFramework
 
     protected function registerDefaultSessionHandlers(): void
     {
-        // Session validators
         $this->sessionValidators['timeout'] = function ($sessionData) {
             $updatedAt = Carbon::parse($sessionData['updated_at']);
 
@@ -157,7 +156,6 @@ class UssdFramework
             return $updatedAt->addSeconds($this->config['grace_period'])->isAfter(Carbon::now());
         };
 
-        // Recovery handlers
         $this->sessionRecoveryHandlers['form_recovery'] = function ($sessionData) {
             if (! empty($sessionData['form_data'])) {
                 $completionPercentage = $this->calculateFormCompletionPercentage($sessionData);
@@ -199,7 +197,6 @@ class UssdFramework
         try {
             $requestStartTime = microtime(true);
 
-            // Security checks
             if ($this->rateLimiter && ! $this->rateLimiter->allow($phoneNumber)) {
                 $this->auditLogger?->logSecurity('rate_limit_exceeded', $phoneNumber);
 
@@ -220,28 +217,23 @@ class UssdFramework
                 $userInput = $sanitizationResult['input'];
             }
 
-            // Initialize session with enhanced capabilities
             $this->session = $this->getOrCreateSession($request);
 
-            // Track session start if new
             if (! $this->session->exists() && $this->analytics) {
                 $this->analytics->trackSession($phoneNumber, 'start');
             }
 
             $this->executeHooks('before_process', [$request, $this->session]);
 
-            // Handle session continuation if needed
             $continuationResponse = $this->handleSessionContinuation();
             if ($continuationResponse) {
                 return $continuationResponse;
             }
 
-            // Process the USSD input
             $response = $this->processUssdInput($userInput, $this->session);
 
             $menuName = $this->session->getCurrentMenu() ?? $this->config['default_menu'];
 
-            // Analytics and logging
             $this->analytics?->trackMenuInteraction($phoneNumber, $menuName, $userInput, [
                 'response_type' => $response->getType(),
                 'cached' => false,
@@ -255,15 +247,12 @@ class UssdFramework
 
             $this->executeHooks('after_process', [$request, $this->session, $response]);
 
-            // Save session
             $this->session->save();
 
-            // Database operations
             if ($this->databaseService) {
                 $this->saveSessionToDatabase($response);
             }
 
-            // Track session end
             if ($response->isEnd() && $this->analytics) {
                 $this->analytics->trackSession($phoneNumber, 'end', [
                     'final_menu' => $menuName,
@@ -301,12 +290,10 @@ class UssdFramework
         $now = Carbon::now();
         $updatedAt = Carbon::parse($sessionData['updated_at']);
 
-        // Check if session is still active
         if ($this->sessionValidators['timeout']($sessionData)) {
             return $this->createSessionFromData($sessionData, $request, 'active');
         }
 
-        // Check if in grace period
         if ($this->sessionValidators['grace_period']($sessionData)) {
             $session = $this->createSessionFromData($sessionData, $request, 'grace_period');
             $session->setFlag('in_grace_period', true);
@@ -314,7 +301,6 @@ class UssdFramework
             return $session;
         }
 
-        // Attempt intelligent recovery
         if ($this->config['enable_intelligent_recovery']) {
             $recoveryContext = $this->attemptIntelligentRecovery($sessionData, $request);
             if ($recoveryContext) {
@@ -325,7 +311,6 @@ class UssdFramework
             }
         }
 
-        // Create new session with preserved context
         if ($this->config['enable_context_preservation']) {
             return $this->createNewSessionWithContext($sessionData, $request);
         }
@@ -371,7 +356,6 @@ class UssdFramework
     {
         $session = $this->createNewSession($this->extractPhoneNumber($request), $this->generateSessionId(), $request);
 
-        // Preserve user data
         if (isset($expiredSessionData['user_data'])) {
             $preservableData = $this->getPreservableUserData($expiredSessionData['user_data']);
             foreach ($preservableData as $key => $value) {
@@ -442,7 +426,6 @@ class UssdFramework
             'session_step' => $session->getStep(),
         ]);
 
-        // Handle continuation menu responses
         if ($session->getFlag('awaiting_continuation_choice')) {
             return $this->processContinuationChoice($text);
         }
@@ -634,7 +617,6 @@ class UssdFramework
         return $menu->process('', $session);
     }
 
-    // Menu management methods
     public function registerMenu(string $name, UssdMenuInterface $menu): static
     {
         $this->menus[$name] = $menu;
@@ -713,7 +695,6 @@ class UssdFramework
         return $this->getCurrentMenu();
     }
 
-    // Session management methods
     public function getSession(): ?UssdSession
     {
         return $this->session;
@@ -721,21 +702,18 @@ class UssdFramework
 
     public function cleanupSessions(): int
     {
-        // Implementation depends on persistence strategy
         return 0;
     }
 
     public function migrateSession(string $fromPhoneNumber, string $toPhoneNumber): bool
     {
-        if (! $this->config['enable_session_migration']) {
-            return false;
+        if (!$this->config['enable_session_migration']) {
+            return true;
         }
 
-        // Implementation depends on persistence strategy
         return false;
     }
 
-    // Hook management
     public function addHook(string $event, callable $callback): static
     {
         if (! isset($this->hooks[$event])) {
@@ -763,7 +741,6 @@ class UssdFramework
         }
     }
 
-    // Utility methods
     public function getConfig(?string $key = null, mixed $default = null): mixed
     {
         if ($key === null) {
@@ -815,7 +792,6 @@ class UssdFramework
         ];
     }
 
-    // Helper methods
     protected function calculateFormCompletionPercentage(array $sessionData): int
     {
         if (! isset($sessionData['form_data']) || ! isset($sessionData['form_config'])) {
@@ -867,12 +843,12 @@ class UssdFramework
     protected function saveSessionToDatabase(UssdResponse $response): void
     {
         $this->databaseService->saveUserSession(
-            $this->session->getSessionId(),
-            $this->session->getPhoneNumber(),
-            $this->session->getCurrentMenu() ?? $this->config['default_menu'],
-            $this->session->getSummary(),
-            isset($this->session->getSummary()['created_at']) ? Carbon::parse($this->session->getSummary()['created_at']) : null,
-            $response->isEnd()
+            sessionId: $this->session->getSessionId(),
+            phoneNumber: $this->session->getPhoneNumber(),
+            currentMenu: $this->session->getCurrentMenu() ?? $this->config['default_menu'],
+            sessionData: $this->session->getSummary(),
+            startedAt: isset($this->session->getSummary()['created_at']) ? Carbon::parse($this->session->getSummary()['created_at']) : null,
+            completed: $response->isEnd()
         );
     }
 
@@ -918,7 +894,7 @@ class UssdFramework
     {
         if ($this->config['performance']['enable_profiling']) {
             $this->analytics?->trackPerformance($action, $duration, [
-                'menu' => $this->session?->getCurrentMenu(),
+                'menu' => $this->session->getCurrentMenu(),
                 'memory_usage' => memory_get_usage(true),
             ]);
         }

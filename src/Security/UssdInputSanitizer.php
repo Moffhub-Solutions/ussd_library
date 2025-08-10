@@ -9,9 +9,9 @@ use InvalidArgumentException;
 
 class UssdInputSanitizer
 {
-    protected $config;
+    protected array $config;
 
-    protected $patterns;
+    protected array $patterns;
 
     public function __construct($config = [])
     {

@@ -2,6 +2,9 @@
 
 namespace Moffhub\Ussd\Builders;
 
+
+use Moffhub\Ussd\Menus\UssdMenu;
+
 class UnifiedMenuBuilder
 {
     protected UssdMenu $menu;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Moffhub\Ussd\Analytics;
 
 use Carbon\Carbon;
+use Error;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -36,9 +37,6 @@ class UssdAnalytics
         ], $config);
     }
 
-    /**
-     * Set database service for enhanced logging
-     */
     public function setDatabaseService(UssdDatabaseService $databaseService): void
     {
         $this->databaseService = $databaseService;
@@ -96,9 +94,6 @@ class UssdAnalytics
         return $this->recordEvent($sessionEvent);
     }
 
-    /**
-     * Track performance metrics
-     */
     public function trackPerformance(string $action, int|float $duration, array $details = []): bool
     {
         if (! $this->config['track_performance']) {
@@ -145,9 +140,6 @@ class UssdAnalytics
         }
     }
 
-    /**
-     * Track errors and exceptions
-     */
     public function trackError(Error $error, ?string $phoneNumber = null, array $context = []): bool
     {
         if (! $this->config['track_errors']) {
@@ -168,9 +160,6 @@ class UssdAnalytics
         return $this->recordEvent($event);
     }
 
-    /**
-     * Track business metrics
-     */
     public function trackBusinessMetric(string $metric, string|int|float $value, ?string $phoneNumber = null, array $details = []): bool
     {
         if (! $this->config['track_business_metrics']) {
@@ -230,9 +219,6 @@ class UssdAnalytics
         return $this->recordEvent($conversionEvent);
     }
 
-    /**
-     * Record event to buffer and database
-     */
     protected function recordEvent(array $event): bool
     {
         $this->metricsBuffer[] = $event;
@@ -323,9 +309,6 @@ class UssdAnalytics
         }
     }
 
-    /**
-     * Update real-time metrics cache
-     */
     protected function updateRealTimeMetrics(array $event): void
     {
         $cacheKey = 'ussd_real_time_metrics';
@@ -338,7 +321,6 @@ class UssdAnalytics
             'last_updated' => now(),
         ]);
 
-        // Update based on event type
         switch ($event['event_type']) {
             case 'session':
                 if ($event['session_event'] === 'start') {
@@ -400,7 +382,7 @@ class UssdAnalytics
         $query = DB::table($this->config['table_name'])
             ->whereBetween('timestamp', [$startDate, $endDate]);
 
-        $report = [
+        return [
             'period' => [
                 'start' => $startDate,
                 'end' => $endDate,
@@ -412,8 +394,6 @@ class UssdAnalytics
             'business_metrics' => $this->analyzeBusinessMetrics($query),
             'trends' => $this->analyzeTrends($query, $startDate, $endDate),
         ];
-
-        return $report;
     }
 
     public function getFunnelAnalysis(array $steps, string $startDate, string $endDate): array

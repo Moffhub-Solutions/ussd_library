@@ -2,6 +2,7 @@
 
 namespace Moffhub\Ussd\Builders;
 
+use Closure;
 use Moffhub\Ussd\Menus\UssdMenu;
 
 class FlexibleFormBuilder
@@ -10,11 +11,11 @@ class FlexibleFormBuilder
 
     protected array $fields = [];
 
-    protected $onComplete;
+    protected ?Closure $onComplete;
 
     protected array $config = [];
 
-    public function __construct(string $title, ?callable $onComplete = null)
+    public function __construct(string $title, ?Closure $onComplete = null)
     {
         $this->title = $title;
         $this->onComplete = $onComplete;
@@ -144,7 +145,6 @@ class FlexibleFormBuilder
         $menu->setOnComplete($this->onComplete);
         $menu->setConfig($this->config);
 
-        // Enable relevant features based on field types
         $features = ['validation'];
 
         foreach ($this->fields as $field) {

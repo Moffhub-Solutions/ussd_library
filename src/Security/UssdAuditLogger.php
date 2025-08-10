@@ -42,9 +42,6 @@ class UssdAuditLogger
         ];
     }
 
-    /**
-     * Set database service for enhanced logging
-     */
     public function setDatabaseService(UssdDatabaseService $databaseService): void
     {
         $this->databaseService = $databaseService;
@@ -77,14 +74,12 @@ class UssdAuditLogger
 
     protected function saveSecurityEventToDatabase($eventType, $phoneNumber, $details, $severity): void
     {
-        // Use database service if available
         if ($this->databaseService) {
             $this->databaseService->saveSecurityEvent($eventType, $phoneNumber, $details, $severity);
 
             return;
         }
 
-        // Fallback to direct database access
         try {
             DB::table('ussd_security_events')->insert([
                 'event_type' => $eventType,

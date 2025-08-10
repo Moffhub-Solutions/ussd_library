@@ -30,9 +30,6 @@ class UssdCacheManager
         $this->defaultTtl = $this->config['default_ttl'];
     }
 
-    /**
-     * Cache menu content with automatic invalidation
-     */
     public function cacheMenuContent(string $menuName, mixed $content, ?string $userId = null, ?int $ttl = null): bool
     {
         if (! $this->isEnabled()) {
@@ -50,9 +47,6 @@ class UssdCacheManager
         ], $ttl);
     }
 
-    /**
-     * Get cached menu content
-     */
     public function getMenuContent(string $menuName, ?string $userId = null): mixed
     {
         if (! $this->isEnabled()) {
@@ -73,9 +67,6 @@ class UssdCacheManager
         return null;
     }
 
-    /**
-     * Cache data provider results with tags for easy invalidation
-     */
     public function cacheDataProvider(string $providerKey, array $filters, mixed $data, ?int $ttl = null): bool
     {
         if (! $this->isEnabled()) {
@@ -96,9 +87,7 @@ class UssdCacheManager
         ], $ttl);
     }
 
-    /**
-     * Get cached data provider results
-     */
+
     public function getDataProvider(string $providerKey, array $filters = []): mixed
     {
         if (! $this->isEnabled()) {
@@ -121,9 +110,6 @@ class UssdCacheManager
         return null;
     }
 
-    /**
-     * Cache user-specific data with personalization
-     */
     public function cacheUserData(string $userId, string $key, mixed $data, ?int $ttl = null): bool
     {
         if (! $this->isEnabled()) {
@@ -141,9 +127,6 @@ class UssdCacheManager
         ], $ttl);
     }
 
-    /**
-     * Get cached user data
-     */
     public function getUserData(string $userId, string $key): mixed
     {
         if (! $this->isEnabled()) {
@@ -160,9 +143,6 @@ class UssdCacheManager
         return null;
     }
 
-    /**
-     * Invalidate cache by tags or patterns
-     */
     public function invalidate(string $type, ?string $identifier = null): bool
     {
         if (! $this->isEnabled()) {
@@ -196,9 +176,6 @@ class UssdCacheManager
         return false;
     }
 
-    /**
-     * Warm up cache with commonly accessed data
-     */
     public function warmUp(array $strategies = []): bool
     {
         if (! $this->isEnabled()) {
@@ -230,9 +207,6 @@ class UssdCacheManager
         return true;
     }
 
-    /**
-     * Get cache statistics and health metrics
-     */
     public function getStats(): array
     {
         if (! $this->isEnabled()) {
@@ -249,19 +223,13 @@ class UssdCacheManager
         ];
     }
 
-    /**
-     * Generate cache key for menu content
-     */
     protected function getMenuContentKey(string $menuName, ?string $userId = null): string
     {
-        $base = "{$this->prefix}menu_{$menuName}";
+        $base = "{$this->prefix}menu_$menuName";
 
-        return $userId ? "{$base}_user_{$userId}" : $base;
+        return $userId ? "{$base}_user_$userId" : $base;
     }
 
-    /**
-     * Generate cache key for data provider
-     */
     protected function getDataProviderKey(string $providerKey, array $filters): string
     {
         $filterHash = md5(serialize($filters));
@@ -269,62 +237,41 @@ class UssdCacheManager
         return "{$this->prefix}data_{$providerKey}_{$filterHash}";
     }
 
-    /**
-     * Generate cache key for user data
-     */
     protected function getUserDataKey(string $userId, string $key): string
     {
         return "{$this->prefix}user_{$userId}_{$key}";
     }
 
-    /**
-     * Check if cached data is still valid
-     */
     protected function isValidCache(mixed $cached): bool
     {
         return isset($cached['created_at']) &&
                $cached['created_at']->isAfter(now()->subSeconds($this->defaultTtl));
     }
 
-    /**
-     * Check if caching is enabled
-     */
     protected function isEnabled(): bool
     {
         return $this->config['enabled'] ?? true;
     }
 
-    /**
-     * Invalidate menu cache for specific menu
-     */
     protected function invalidateMenuCache(string $menuName): bool
     {
-        $pattern = "{$this->prefix}menu_{$menuName}*";
+        $pattern = "{$this->prefix}menu_$menuName*";
 
         return Cache::flush(); // In production, use more specific invalidation
     }
 
-    /**
-     * Invalidate user cache
-     */
     protected function invalidateUserCache(string $userId): bool
     {
-        $pattern = "{$this->prefix}user_{$userId}*";
+        $pattern = "{$this->prefix}user_$userId*";
 
         return Cache::flush(); // In production, use more specific invalidation
     }
 
-    /**
-     * Invalidate all USSD cache
-     */
     protected function invalidateAll(): bool
     {
         return Cache::flush();
     }
 
-    /**
-     * Warm up menu cache
-     */
     protected function warmUpMenus(array $config): void
     {
         // Implementation depends on your menu structure
@@ -340,17 +287,11 @@ class UssdCacheManager
         Log::info('Warming up data provider cache', $config);
     }
 
-    /**
-     * Get approximate memory usage
-     */
     protected function getMemoryUsage(): int
     {
         return memory_get_usage(true);
     }
 
-    /**
-     * Get approximate cache keys count
-     */
     protected function getCacheKeysCount(): int
     {
         // This is a simplified implementation

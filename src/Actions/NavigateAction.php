@@ -26,7 +26,7 @@ class NavigateAction implements ActionInterface
         $this->data = $data;
     }
 
-    public function execute(string $input, UssdSession $session, UssdFramework $framework): UssdResponse
+    public function execute(string|null $input, UssdSession $session, UssdFramework $framework): UssdResponse
     {
         $framework->navigateToMenu($this->menuName, $this->data);
 

@@ -2,6 +2,8 @@
 
 namespace Moffhub\Ussd\Builders;
 
+use Moffhub\Ussd\Menus\ConditionalMenu;
+
 class ConditionalMenuBuilder
 {
     protected ConditionalMenu $menu;

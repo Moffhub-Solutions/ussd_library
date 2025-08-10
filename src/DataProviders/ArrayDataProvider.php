@@ -20,7 +20,6 @@ class ArrayDataProvider implements DataProviderInterface
     {
         $data = $this->data;
 
-        // Apply filters
         foreach ($filters as $field => $value) {
             $data = array_filter($data, function ($item) use ($field, $value) {
                 return isset($item[$field]) && $item[$field] == $value;
