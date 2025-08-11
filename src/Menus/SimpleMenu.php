@@ -43,7 +43,7 @@ class SimpleMenu extends UssdMenu
         return UssdResponse::continue($message);
     }
 
-    protected function processStep($input, $step, UssdSession $session): UssdResponse
+    protected function processStep(string $input, int $step, UssdSession $session): UssdResponse
     {
         if ($step === 0) {
             $input = trim($input);
@@ -52,7 +52,7 @@ class SimpleMenu extends UssdMenu
                 return UssdResponse::continue("Invalid option. Please try again.\n".$this->showInitial($session)->getMessage());
             }
 
-            if (isset($this->actions[$input])) {
+            if (isset($this->actions[$input]) && $this->framework) {
                 $action = $this->actions[$input];
 
                 if ($action instanceof ActionInterface) {
@@ -68,7 +68,7 @@ class SimpleMenu extends UssdMenu
         return UssdResponse::end('Session ended.');
     }
 
-    public function addOption($key, $value, $action = null): static
+    public function addOption(string $key, string $value, ?callable $action = null): static
     {
         $this->options[$key] = $value;
         if ($action) {
@@ -78,7 +78,7 @@ class SimpleMenu extends UssdMenu
         return $this;
     }
 
-    public function setFooter($footer): static
+    public function setFooter(string $footer): static
     {
         $this->footer = $footer;
 

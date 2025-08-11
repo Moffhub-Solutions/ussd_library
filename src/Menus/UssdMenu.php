@@ -28,17 +28,18 @@ class UssdMenu implements UssdMenuInterface
 
     protected array $actions = [];
 
+    /** @var array<string, FormField> */
     protected array $fields = [];
 
     protected array $conditions = [];
 
     protected array $validators = [];
 
-    protected Closure|null $onComplete = null;
+    protected ?Closure $onComplete = null;
 
     protected mixed $dataProvider = null;
 
-    protected Closure|null $itemFormatter = null;
+    protected ?Closure $itemFormatter = null;
 
     protected array $enabledFeatures = [];
 
@@ -137,6 +138,20 @@ class UssdMenu implements UssdMenuInterface
         return $this;
     }
 
+    public function setDefaultMenu(string $menu): static
+    {
+        if ($this->framework) {
+            $this->conditions[] = [
+                'condition' => fn (UssdSession $session) => true,
+                'action' => $menu,
+            ];
+        } else {
+            throw new Exception('Framework is not set. Cannot set default menu.');
+        }
+
+        return $this;
+    }
+
     public function setFields(array $fields): self
     {
         $this->fields = [];
@@ -173,7 +188,7 @@ class UssdMenu implements UssdMenuInterface
         return $this;
     }
 
-    public function setOnComplete(?callable $onComplete): self
+    public function setOnComplete(?Closure $onComplete): self
     {
         $this->onComplete = $onComplete;
 
@@ -261,18 +276,20 @@ class UssdMenu implements UssdMenuInterface
 
     protected function processSimpleMenu(string $input, UssdSession $session): UssdResponse
     {
-        if (isset($this->actions[$input])) {
-            $action = $this->actions[$input];
+        if ($this->framework) {
+            if (isset($this->actions[$input])) {
+                $action = $this->actions[$input];
 
-            if ($action instanceof ActionInterface) {
-                return $action->execute($input, $session, $this->framework);
-            } elseif (is_callable($action)) {
-                return $action($input, $session, $this->framework);
+                if ($action instanceof ActionInterface) {
+                    return $action->execute($input, $session, $this->framework);
+                } elseif (is_callable($action)) {
+                    return $action($input, $session, $this->framework);
+                }
             }
-        }
 
-        if (isset($this->options[$input])) {
-            return UssdResponse::end('You selected: '.$this->options[$input]);
+            if (isset($this->options[$input])) {
+                return UssdResponse::end('You selected: '.$this->options[$input]);
+            }
         }
 
         return $this->handleInvalidInput($input, $session);
@@ -333,12 +350,12 @@ class UssdMenu implements UssdMenuInterface
         $fieldKey = $fieldKeys[$fieldIndex];
         $field = $this->fields[$fieldKey];
 
-        if (method_exists($field, 'isPaginated') && $field->isPaginated()) {
+        if ($field->isPaginated()) {
             return $this->handlePaginatedField($field, $input, $session);
         }
 
         if (empty($input)) {
-            if (method_exists($field, 'isOptional') && $field->isOptional()) {
+            if ($field->isOptional()) {
                 $session->setFormData($fieldKey, '');
 
                 return $this->moveToNextField($session);
@@ -394,7 +411,7 @@ class UssdMenu implements UssdMenuInterface
             $fieldKey = $fieldKeys[$fieldIndex];
             $field = $this->fields[$fieldKey];
 
-            if (! method_exists($field, 'isVisible') || $field->isVisible($session->getFormData())) {
+            if ($field->isVisible($session->getFormData())) {
                 break;
             }
 
@@ -409,17 +426,17 @@ class UssdMenu implements UssdMenuInterface
         $fieldKey = $fieldKeys[$fieldIndex];
         $field = $this->fields[$fieldKey];
 
-        if (method_exists($field, 'isPaginated') && $field->isPaginated()) {
+        if ($field->isPaginated()) {
             $session->setFormData('_form_state', 'paginating');
 
             return $this->showPaginatedFieldOptions($field, $session);
         }
 
-        $message = method_exists($field, 'getPrompt') ? $field->getPrompt() : "Enter {$fieldKey}:";
+        $message = $field->getPrompt();
 
         if ($this->config['show_progress'] ?? false) {
             $progress = $this->calculateFormProgress($session);
-            $message = "Progress: {$progress}%\n\n".$message;
+            $message = "Progress: $progress%\n\n".$message;
         }
 
         $message = $this->addGlobalNavigation($message, $session);
@@ -440,12 +457,8 @@ class UssdMenu implements UssdMenuInterface
         try {
             $formData = $session->getFormData();
 
-            if ($this->onComplete) {
-                if ($this->onComplete instanceof ActionInterface) {
-                    return $this->onComplete->execute(null, $session, $this->framework);
-                } elseif (is_callable($this->onComplete)) {
-                    return ($this->onComplete)($session, $this->framework);
-                }
+            if ($this->onComplete && $this->framework) {
+                return call_user_func($this->onComplete, $session, $formData);
             }
 
             return UssdResponse::end('Form completed successfully!');
@@ -589,7 +602,7 @@ class UssdMenu implements UssdMenuInterface
         $selectedKey = $dataKeys[$inputIndex];
         $selectedItem = $pagedData[$selectedKey];
 
-        if (isset($this->actions[$selectedKey])) {
+        if (isset($this->actions[$selectedKey]) && $this->framework) {
             $action = $this->actions[$selectedKey];
 
             if ($action instanceof ActionInterface) {
@@ -706,12 +719,8 @@ class UssdMenu implements UssdMenuInterface
 
     protected function completeWizard(UssdSession $session): UssdResponse
     {
-        if ($this->onComplete) {
-            if ($this->onComplete instanceof ActionInterface) {
-                return $this->onComplete->execute(null, $session, $this->framework);
-            } elseif (is_callable($this->onComplete)) {
-                return ($this->onComplete)($session, $this->framework);
-            }
+        if ($this->onComplete && $this->framework) {
+            return call_user_func($this->onComplete, $session, $this->framework);
         }
 
         return UssdResponse::end('Wizard completed successfully!');
@@ -764,7 +773,7 @@ class UssdMenu implements UssdMenuInterface
 
     protected function formatItem(mixed $key, mixed $item): string
     {
-        if ($this->itemFormatter && is_callable($this->itemFormatter)) {
+        if (is_callable($this->itemFormatter)) {
             return ($this->itemFormatter)($key, $item);
         }
 
@@ -869,7 +878,7 @@ class UssdMenu implements UssdMenuInterface
         return UssdResponse::continue('Home navigation not available.');
     }
 
-    protected function handleInvalidInput(string|null $input, UssdSession $session): UssdResponse
+    protected function handleInvalidInput(?string $input, UssdSession $session): UssdResponse
     {
         $message = 'Invalid option. Please try again.';
         $message = $this->addGlobalNavigation($message, $session);
@@ -890,7 +899,7 @@ class UssdMenu implements UssdMenuInterface
             return $this->showPaginatedFieldOptions($field, $session);
         }
 
-        if ($input === '98' && method_exists($field, 'isSearchable') && $field->isSearchable()) {
+        if ($input === '98' && $field->isSearchable()) {
             $session->setFormData('_form_state', 'searching');
 
             return UssdResponse::continue('Search '.$field->getName().":\nEnter search term:");
@@ -905,29 +914,29 @@ class UssdMenu implements UssdMenuInterface
 
     protected function showPaginatedFieldOptions(FormField $field, UssdSession $session): UssdResponse
     {
-        $options = method_exists($field, 'getOptions') ? $field->getOptions($session) : [];
+        $options = $field->getOptions($session);
         $searchQuery = $session->getFormData('_search_query', '');
 
         if (! empty($searchQuery)) {
-            $searchFields = method_exists($field, 'getSearchFields') ? $field->getSearchFields() : ['name'];
+            $searchFields = $field->getSearchFields();
             $options = $this->filterData($options, $searchQuery);
         }
 
         $currentPage = $session->getFormData('_pagination_page', 1);
-        $itemsPerPage = method_exists($field, 'getItemsPerPage') ? $field->getItemsPerPage() : $this->config['items_per_page'];
+        $itemsPerPage = $field->getItemsPerPage();
         $offset = ($currentPage - 1) * $itemsPerPage;
 
         $pagedOptions = array_slice($options, $offset, $itemsPerPage, true);
         $totalPages = ceil(count($options) / $itemsPerPage);
 
         if (empty($pagedOptions)) {
-            $message = empty($searchQuery) ? 'No options available.' : "No results found for '{$searchQuery}'.";
+            $message = empty($searchQuery) ? 'No options available.' : "No results found for '$searchQuery'.";
             $message = $this->addGlobalNavigation($message, $session);
 
             return UssdResponse::continue($message);
         }
 
-        $message = method_exists($field, 'getPrompt') ? $field->getPrompt()."\n" : $field->getName()."\n";
+        $message = $field->getPrompt()."\n";
 
         if (! empty($searchQuery)) {
             $message .= "Search: '{$searchQuery}'\n";
@@ -951,7 +960,7 @@ class UssdMenu implements UssdMenuInterface
             $message .= "Page {$currentPage} of {$totalPages}\n";
         }
 
-        if (method_exists($field, 'isSearchable') && $field->isSearchable()) {
+        if ($field->isSearchable()) {
             $message .= "98. Search\n";
         }
 
@@ -962,16 +971,16 @@ class UssdMenu implements UssdMenuInterface
 
     protected function handleFieldOptionSelection(FormField $field, string $input, UssdSession $session): UssdResponse
     {
-        $options = method_exists($field, 'getOptions') ? $field->getOptions($session) : [];
+        $options = $field->getOptions($session);
         $searchQuery = $session->getFormData('_search_query', '');
 
         if (! empty($searchQuery)) {
-            $searchFields = method_exists($field, 'getSearchFields') ? $field->getSearchFields() : ['name'];
+            $searchFields = $field->getSearchFields();
             $options = $this->filterData($options, $searchQuery);
         }
 
         $currentPage = $session->getFormData('_pagination_page', 1);
-        $itemsPerPage = method_exists($field, 'getItemsPerPage') ? $field->getItemsPerPage() : $this->config['items_per_page'];
+        $itemsPerPage = $field->getItemsPerPage();
         $offset = ($currentPage - 1) * $itemsPerPage;
 
         $pagedOptions = array_slice($options, $offset, $itemsPerPage, true);

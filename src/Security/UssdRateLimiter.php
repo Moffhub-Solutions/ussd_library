@@ -12,13 +12,13 @@ use Moffhub\Ussd\Services\UssdDatabaseService;
 
 class UssdRateLimiter
 {
-    protected $config;
+    protected array $config = [];
 
-    protected $prefix;
+    protected string $prefix;
 
     protected ?UssdDatabaseService $databaseService = null;
 
-    public function __construct($config = [])
+    public function __construct(array $config = [])
     {
         $this->config = array_merge([
             'max_requests_per_minute' => 10,
@@ -39,7 +39,7 @@ class UssdRateLimiter
         $this->databaseService = $databaseService;
     }
 
-    public function allow($phoneNumber, $action = 'request'): bool
+    public function allow(string $phoneNumber, string $action = 'request'): bool
     {
         if (! $this->isEnabled()) {
             return true;
@@ -73,7 +73,7 @@ class UssdRateLimiter
         return true;
     }
 
-    protected function checkRateLimit($phoneNumber, $action): bool
+    protected function checkRateLimit(string $phoneNumber, string $action): bool
     {
         $windows = [
             'minute' => ['limit' => $this->config['max_requests_per_minute'], 'seconds' => 60],
@@ -99,7 +99,7 @@ class UssdRateLimiter
         return true;
     }
 
-    protected function recordRequest($phoneNumber, $action): void
+    protected function recordRequest(string $phoneNumber, string $action): void
     {
         $key = $this->getRequestKey($phoneNumber, $action);
         $now = Carbon::now();
@@ -118,7 +118,7 @@ class UssdRateLimiter
         $this->saveRateLimitToDatabase($phoneNumber, $action, $requests);
     }
 
-    protected function saveRateLimitToDatabase($phoneNumber, $action, $requests): void
+    protected function saveRateLimitToDatabase(string $phoneNumber, string $action, array $requests): void
     {
         if ($this->databaseService) {
             $this->databaseService->saveRateLimit($phoneNumber, $action, $requests);
@@ -144,7 +144,7 @@ class UssdRateLimiter
         }
     }
 
-    protected function getRequestCount($phoneNumber, $action, $seconds): int
+    protected function getRequestCount(string $phoneNumber, string $action, int|float $seconds): int
     {
         $key = $this->getRequestKey($phoneNumber, $action);
         $requests = Cache::get($key, []);
@@ -156,7 +156,7 @@ class UssdRateLimiter
         }));
     }
 
-    protected function blockUser($phoneNumber): void
+    protected function blockUser(string $phoneNumber): void
     {
         $key = $this->getBlockKey($phoneNumber);
         $blockedUntil = Carbon::now()->addSeconds($this->config['blocked_duration']);
@@ -192,7 +192,7 @@ class UssdRateLimiter
         ]);
     }
 
-    protected function isBlocked($phoneNumber): bool
+    protected function isBlocked(string $phoneNumber): bool
     {
         $key = $this->getBlockKey($phoneNumber);
         $blockedUntil = Cache::get($key);
@@ -208,32 +208,32 @@ class UssdRateLimiter
         return false;
     }
 
-    protected function isWhitelisted($phoneNumber): bool
+    protected function isWhitelisted(string $phoneNumber): bool
     {
         return in_array($phoneNumber, $this->config['whitelist']);
     }
 
-    protected function isBlacklisted($phoneNumber): bool
+    protected function isBlacklisted(string $phoneNumber): bool
     {
         return in_array($phoneNumber, $this->config['blacklist']);
     }
 
-    protected function getRequestKey($phoneNumber, $action): string
+    protected function getRequestKey(string $phoneNumber, string $action): string
     {
         return "{$this->prefix}requests_{$phoneNumber}_{$action}";
     }
 
-    protected function getBlockKey($phoneNumber): string
+    protected function getBlockKey(string $phoneNumber): string
     {
         return "{$this->prefix}blocked_$phoneNumber";
     }
 
-    protected function isEnabled()
+    protected function isEnabled(): bool
     {
         return $this->config['enabled'] ?? true;
     }
 
-    protected function logSecurity($event, $phoneNumber, $action, $additional = []): void
+    protected function logSecurity(string $event, string $phoneNumber, string $action, array $additional = []): void
     {
         Log::channel('security')->warning("USSD Security Event: $event", array_merge([
             'phone' => $phoneNumber,
@@ -243,7 +243,7 @@ class UssdRateLimiter
         ], $additional));
     }
 
-    public function getStatus($phoneNumber): array
+    public function getStatus(string $phoneNumber): array
     {
         return [
             'whitelisted' => $this->isWhitelisted($phoneNumber),
@@ -260,7 +260,7 @@ class UssdRateLimiter
         ];
     }
 
-    public function manualBlock($phoneNumber, $duration = null): void
+    public function manualBlock(string $phoneNumber, int|string $duration = 0): void
     {
         $duration = $duration ?: $this->config['blocked_duration'];
         $key = $this->getBlockKey($phoneNumber);
@@ -274,7 +274,7 @@ class UssdRateLimiter
         ]);
     }
 
-    public function unblock($phoneNumber): void
+    public function unblock(string $phoneNumber): void
     {
         $key = $this->getBlockKey($phoneNumber);
         Cache::forget($key);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Moffhub\Ussd\Services;
 
+use App\Models\UssdMenuStatistic;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Facades\DB;
@@ -75,7 +76,7 @@ class UssdDatabaseService
         string $severity = 'low',
         ?string $sessionId = null
     ): bool {
-        if (!$this->config['enable_database_logging']) {
+        if (! $this->config['enable_database_logging']) {
             return false;
         }
 
@@ -345,6 +346,7 @@ class UssdDatabaseService
         try {
             $today = now()->toDateString();
 
+            /** @var UssdMenuStatistic|null $existing */
             $existing = DB::table('ussd_menu_statistics')
                 ->where('menu_name', $menuName)
                 ->where('option_selected', $optionSelected)

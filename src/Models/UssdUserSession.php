@@ -22,7 +22,4 @@ use Illuminate\Database\Eloquent\Model;
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
-class UssdUserSession extends Model
-{
-
-}
+class UssdUserSession extends Model {}

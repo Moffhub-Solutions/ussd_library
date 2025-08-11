@@ -166,7 +166,7 @@ trait GlobalNavigationTrait
         }
     }
 
-    protected function navigateTo($menuName, $data = []): bool
+    protected function navigateTo(string $menuName, array $data = []): bool
     {
         try {
             if (! isset($this->framework)) {

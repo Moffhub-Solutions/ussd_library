@@ -25,7 +25,7 @@ class UssdSession
 
     protected ?array $recoveryContext = null;
 
-    protected Carbon|null $lastAccessTime;
+    protected ?Carbon $lastAccessTime;
 
     protected array $sessionMetrics = [];
 
@@ -177,7 +177,7 @@ class UssdSession
 
         $history[] = $historyEntry;
 
-        $maxHistorySize = $this->config['max_history_size'] ?? 10;
+        $maxHistorySize = (int) ($this->config['max_history_size'] ?? 10);
         if (count($history) > $maxHistorySize) {
             $history = array_slice($history, -$maxHistorySize);
         }
@@ -238,7 +238,7 @@ class UssdSession
         return $formData[$key] ?? $default;
     }
 
-    public function setFormData(string $key, mixed $value): void
+    public function setFormData(string|int $key, mixed $value): void
     {
         $formData = $this->get('form_data', []);
         $oldValue = $formData[$key] ?? null;
@@ -357,7 +357,7 @@ class UssdSession
     {
         $history = $this->get('menu_history', []);
 
-        return !empty($history);
+        return ! empty($history);
     }
 
     public function reset(): void
@@ -686,7 +686,7 @@ class UssdSession
 
         if ($exists) {
             $cachedData = Cache::get($this->cacheKey);
-            if (!is_array($cachedData)) {
+            if (! is_array($cachedData)) {
                 Log::warning('UnifiedUssdSession: Invalid cached session data, cleaning up', [
                     'phone' => $this->phoneNumber,
                 ]);

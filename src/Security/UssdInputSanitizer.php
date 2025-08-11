@@ -13,7 +13,7 @@ class UssdInputSanitizer
 
     protected array $patterns;
 
-    public function __construct($config = [])
+    public function __construct(array $config = [])
     {
         $this->config = array_merge([
             'max_input_length' => 100,
@@ -40,7 +40,7 @@ class UssdInputSanitizer
         $this->initializePatterns();
     }
 
-    public function sanitize($input, $context = 'general'): array
+    public function sanitize(string $input, string $context = 'general'): array
     {
         $originalInput = $input;
 
@@ -73,7 +73,7 @@ class UssdInputSanitizer
         ];
     }
 
-    protected function basicSanitization($input): string
+    protected function basicSanitization(string $input): string
     {
         $input = trim((string) $input);
 
@@ -84,10 +84,10 @@ class UssdInputSanitizer
         $input = str_replace("\0", '', $input);
         $input = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $input);
 
-        return html_entity_decode($input, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        return html_entity_decode((string) $input, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }
 
-    protected function contextualSanitization($input, $context): array|string|null
+    protected function contextualSanitization(string $input, string $context): string
     {
         return match ($context) {
             'phone' => $this->sanitizePhone($input),
@@ -99,7 +99,7 @@ class UssdInputSanitizer
         };
     }
 
-    protected function validate($input, $context): array
+    protected function validate(string $input, string $context): array
     {
         $reasons = [];
 
@@ -125,7 +125,7 @@ class UssdInputSanitizer
         ];
     }
 
-    protected function validateByContext($input, $context): array
+    protected function validateByContext(string $input, string $context): array
     {
         return match ($context) {
             'phone' => $this->validatePhone($input),
@@ -135,9 +135,9 @@ class UssdInputSanitizer
         };
     }
 
-    protected function sanitizePhone($input): array|string|null
+    protected function sanitizePhone(string $input): string
     {
-        $input = preg_replace('/[^0-9+]/', '', $input);
+        $input = preg_replace('/[^0-9+]/', '', $input) ?: '';
 
         if (preg_match('/^0([7][0-9]{8})$/', $input, $matches)) {
             $input = '254'.$matches[1];
@@ -150,7 +150,7 @@ class UssdInputSanitizer
         return $input;
     }
 
-    protected function validatePhone($input): array
+    protected function validatePhone(string $input): array
     {
         $reasons = [];
 
@@ -164,9 +164,9 @@ class UssdInputSanitizer
         ];
     }
 
-    protected function sanitizeAmount($input): array|string|null
+    protected function sanitizeAmount(string $input): string
     {
-        $input = preg_replace('/[^\d\.]/', '', $input);
+        $input = preg_replace('/[^\d\.]/', '', $input) ?: '';
 
         if (substr_count($input, '.') > 1) {
             $parts = explode('.', $input);
@@ -176,7 +176,7 @@ class UssdInputSanitizer
         return $input;
     }
 
-    protected function validateAmount($input): array
+    protected function validateAmount(string $input): array
     {
         $reasons = [];
 
@@ -194,21 +194,21 @@ class UssdInputSanitizer
         ];
     }
 
-    protected function sanitizeName($input): string
+    protected function sanitizeName(string $input): string
     {
-        $input = preg_replace('/[^a-zA-Z\s\'\-]/', '', $input);
+        $input = preg_replace('/[^a-zA-Z\s\'\-]/', '', $input) ?: '';
 
-        $input = preg_replace('/\s+/', ' ', $input);
+        $input = preg_replace('/\s+/', ' ', $input) ?: '';
 
         return ucwords(strtolower($input));
     }
 
-    protected function sanitizeMenuOption($input): string
+    protected function sanitizeMenuOption(string $input): string
     {
-        $sanitized = trim((string) $input);
+        $sanitized = trim($input);
 
         $sanitized = str_replace("\0", '', $sanitized);
-        $sanitized = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $sanitized);
+        $sanitized = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $sanitized) ?: '';
 
         if (strlen($sanitized) > 100) {
             $sanitized = substr($sanitized, 0, 100);
@@ -217,7 +217,7 @@ class UssdInputSanitizer
         return $sanitized;
     }
 
-    protected function validateMenuOption($input): array
+    protected function validateMenuOption(?string $input): array
     {
         $reasons = [];
 
@@ -247,16 +247,16 @@ class UssdInputSanitizer
         ];
     }
 
-    protected function sanitizeSearch($input): array|string|null
+    protected function sanitizeSearch(string $input): string
     {
-        $input = preg_replace('/[^a-zA-Z0-9\s\.\,\-]/', '', $input);
+        $input = preg_replace('/[^a-zA-Z0-9\s\.\,\-]/', '', $input) ?: '';
 
-        return preg_replace('/\s+/', ' ', $input);
+        return preg_replace('/\s+/', ' ', $input) ?: '';
     }
 
-    protected function sanitizeGeneral($input): array|string|null
+    protected function sanitizeGeneral(string $input): string
     {
-        return preg_replace('/[^a-zA-Z0-9\s\.\,\-]/', '', $input);
+        return preg_replace('/[^a-zA-Z0-9\s\.\,\-]/', '', $input) ?: '';
     }
 
     protected function initializePatterns(): void
@@ -269,7 +269,7 @@ class UssdInputSanitizer
         ];
     }
 
-    protected function logSuspiciousInput($input, $reasons, $context): void
+    protected function logSuspiciousInput(string $input, string $reasons, string $context): void
     {
         if (! $this->config['log_suspicious']) {
             return;
@@ -295,9 +295,11 @@ class UssdInputSanitizer
         ];
     }
 
-    public function isSuspicious($input): bool
+    public function isSuspicious(string $input): bool
     {
-        return array_any($this->patterns, fn ($pattern) => preg_match($pattern, $input));
-
+        return array_any(
+            $this->patterns,
+            fn ($pattern, $key) => (bool) preg_match($pattern, $input)
+        );
     }
 }

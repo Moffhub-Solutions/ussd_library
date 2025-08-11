@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Moffhub\Ussd\Actions;
 
+use Closure;
 use Exception;
 use Moffhub\Ussd\Interfaces\ActionInterface;
 use Moffhub\Ussd\UssdFramework;
@@ -20,18 +21,18 @@ class SaveDataAction implements ActionInterface
     protected string $errorMessage;
 
     /**
-     * @param  callable  $callback  The callback function to save data
-     * @param  string  $successMessage  Message to show on success
-     * @param  string  $errorMessage  Message to show on error
+     * @param  Closure  $callback  The callback function to save data
+     * @param  string|null  $successMessage  Message to show on success
+     * @param  string|null  $errorMessage  Message to show on error
      */
-    public function __construct(callable $callback, string $successMessage = 'Data saved successfully!', string $errorMessage = 'Failed to save data.')
+    public function __construct(Closure $callback, ?string $successMessage = 'Data saved successfully!', ?string $errorMessage = 'Failed to save data.')
     {
         $this->callback = $callback;
-        $this->successMessage = $successMessage;
-        $this->errorMessage = $errorMessage;
+        $this->successMessage = $successMessage ?: 'Data saved successfully!';
+        $this->errorMessage = $errorMessage ?: 'Failed to save data.';
     }
 
-    public function execute(string|null $input, UssdSession $session, UssdFramework $framework): UssdResponse
+    public function execute(?string $input, UssdSession $session, UssdFramework $framework): UssdResponse
     {
         try {
             $formData = $session->getFormData();

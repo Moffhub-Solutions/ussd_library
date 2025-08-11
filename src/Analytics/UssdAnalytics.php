@@ -61,7 +61,7 @@ class UssdAnalytics
         return $this->recordEvent($event);
     }
 
-    public function trackUserJourney(string $phoneNumber, string $fromMenu, string $toMenu, string $action = 'navigate'): bool
+    public function trackUserJourney(string $phoneNumber, ?string $fromMenu, ?string $toMenu, string $action = 'navigate'): bool
     {
         if (! $this->config['track_user_journey']) {
             return false;

@@ -20,7 +20,4 @@ use Illuminate\Database\Eloquent\Model;
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
-class UssdBusinessMetric extends Model
-{
-
-}
+class UssdBusinessMetric extends Model {}

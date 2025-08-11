@@ -19,9 +19,9 @@ class ConditionalMenu extends UssdMenu
         $this->defaultMenu = $defaultMenu;
     }
 
-    public function addCondition(callable $condition, mixed $menu): self
+    public function addCondition(callable $condition, mixed $action): self
     {
-        $this->conditions[] = ['condition' => $condition, 'menu' => $menu];
+        $this->conditions[] = ['condition' => $condition, 'action' => $action];
 
         return $this;
     }
@@ -38,7 +38,7 @@ class ConditionalMenu extends UssdMenu
         return UssdResponse::end('No menu available.');
     }
 
-    protected function processStep($input, $step, UssdSession $session): UssdResponse
+    protected function processStep(string $input, int $step, UssdSession $session): UssdResponse
     {
         $menu = $this->resolveMenu($session);
         if ($menu) {

@@ -16,41 +16,41 @@ use Moffhub\Ussd\Services\UssdDatabaseService;
 
 class UssdFramework
 {
-    /** @var array<string, UssdMenuInterface> */
-    protected array $menus = [];
+    protected ?UssdAnalytics $analytics = null;
 
-    protected ?UssdSession $session;
+    protected ?UssdAuditLogger $auditLogger = null;
 
-    protected ?Request $request = null;
+    protected ?UssdCacheManager $cacheManager = null;
 
     /** @var array<string, mixed> */
     protected array $config;
 
+    protected ?UssdDatabaseService $databaseService = null;
+
+    // Enhanced components
     /** @var array<string, array<callable>> */
     protected array $hooks = [];
 
-    // Enhanced components
-    protected ?UssdCacheManager $cacheManager = null;
-
-    protected ?UssdRateLimiter $rateLimiter = null;
-
     protected ?UssdInputSanitizer $inputSanitizer = null;
 
-    protected ?UssdAuditLogger $auditLogger = null;
-
-    protected ?UssdAnalytics $analytics = null;
-
-    protected ?UssdDatabaseService $databaseService = null;
-
-    protected float $startTime;
+    /** @var array<string, UssdMenuInterface> */
+    protected array $menus = [];
 
     protected array $performanceMetrics = [];
 
+    protected ?UssdRateLimiter $rateLimiter = null;
+
+    protected Request $request;
+
+    protected UssdSession $session;
+
     protected bool $sessionContinuationEnabled = true;
+
+    protected array $sessionRecoveryHandlers = [];
 
     protected array $sessionValidators = [];
 
-    protected array $sessionRecoveryHandlers = [];
+    protected float $startTime;
 
     public function __construct(
         array $config = [],
@@ -188,19 +188,114 @@ class UssdFramework
         };
     }
 
+    protected function calculateFormCompletionPercentage(array $sessionData): int
+    {
+        if (! isset($sessionData['form_data']) || ! isset($sessionData['form_config'])) {
+            return 0;
+        }
+
+        $formData = $sessionData['form_data'];
+        $formConfig = $sessionData['form_config'];
+
+        if (empty($formConfig['fields'])) {
+            return 0;
+        }
+
+        $totalFields = count($formConfig['fields']);
+        $completedFields = count(array_filter($formData));
+
+        return intval(($completedFields / $totalFields) * 100);
+    }
+
+    public function addHook(string $event, callable $callback): static
+    {
+        if (! isset($this->hooks[$event])) {
+            $this->hooks[$event] = [];
+        }
+        $this->hooks[$event][] = $callback;
+
+        return $this;
+    }
+
+    public function cleanupSessions(): int
+    {
+        return 0;
+    }
+
+    public function getAnalytics(): ?UssdAnalytics
+    {
+        return $this->analytics;
+    }
+
+    public function getCacheManager(): ?UssdCacheManager
+    {
+        return $this->cacheManager;
+    }
+
+    public function getConfig(?string $key = null, mixed $default = null): mixed
+    {
+        if ($key === null) {
+            return $this->config;
+        }
+
+        return data_get($this->config, $key, $default);
+    }
+
+    public function getCurrentMenuPublic(): UssdMenuInterface
+    {
+        return $this->getCurrentMenu();
+    }
+
+    public function getDatabaseService(): ?UssdDatabaseService
+    {
+        return $this->databaseService;
+    }
+
+    public function getHealthStatus(): array
+    {
+        return [
+            'status' => 'healthy',
+            'components' => [
+                'cache' => $this->cacheManager ? 'enabled' : 'disabled',
+                'rate_limiter' => $this->rateLimiter ? 'enabled' : 'disabled',
+                'input_sanitizer' => $this->inputSanitizer ? 'enabled' : 'disabled',
+                'audit_logger' => $this->auditLogger ? 'enabled' : 'disabled',
+                'analytics' => $this->analytics ? 'enabled' : 'disabled',
+            ],
+            'session_management' => [
+                'continuation_enabled' => $this->sessionContinuationEnabled,
+                'persistence_strategy' => $this->config['persistence_strategy'],
+                'intelligent_recovery' => $this->config['enable_intelligent_recovery'],
+                'context_preservation' => $this->config['enable_context_preservation'],
+            ],
+            'performance' => $this->getPerformanceMetrics(),
+            'uptime' => microtime(true) - $this->startTime,
+        ];
+    }
+
+    public function getPerformanceMetrics(): array
+    {
+        return $this->performanceMetrics;
+    }
+
+    public function getSession(): ?UssdSession
+    {
+        return $this->session;
+    }
+
     public function handle(Request $request): UssdResponse
     {
         $this->request = $request;
         $phoneNumber = $request->input('phoneNumber');
         $userInput = $request->input('text', '');
-
+        $requestStartTime = microtime(true);
         try {
-            $requestStartTime = microtime(true);
 
             if ($this->rateLimiter && ! $this->rateLimiter->allow($phoneNumber)) {
                 $this->auditLogger?->logSecurity('rate_limit_exceeded', $phoneNumber);
 
-                return new UssdResponse('END Service temporarily unavailable. Please try again later.', UssdResponse::END);
+                return new UssdResponse('END Service temporarily unavailable. Please try again later.',
+                    UssdResponse::END);
             }
 
             if ($this->inputSanitizer) {
@@ -285,6 +380,23 @@ class UssdFramework
         return $this->createNewSession($phoneNumber, $sessionId, $request);
     }
 
+    protected function extractPhoneNumber(Request $request): string
+    {
+        return $request->phoneNumber ?? $request->input('phoneNumber') ?? $request->input('msisdn') ?? '';
+    }
+
+    protected function generateSessionId(): string
+    {
+        return uniqid('ussd_', true);
+    }
+
+    protected function retrieveSession(string $phoneNumber): ?array
+    {
+        // This would use the persistence strategy
+        // For now, just return null - implement based on your storage choice
+        return null;
+    }
+
     protected function handleExistingSession(array $sessionData, Request $request): UssdSession
     {
         $now = Carbon::now();
@@ -318,18 +430,6 @@ class UssdFramework
         return $this->createNewSession($this->extractPhoneNumber($request), $this->generateSessionId(), $request);
     }
 
-    protected function attemptIntelligentRecovery(array $sessionData, Request $request): ?array
-    {
-        foreach ($this->sessionRecoveryHandlers as $recoveryType => $handler) {
-            $context = $handler($sessionData, $request, $this->config);
-            if ($context) {
-                return $context;
-            }
-        }
-
-        return null;
-    }
-
     protected function createSessionFromData(array $sessionData, Request $request, string $status): UssdSession
     {
         $session = new UssdSession($request, $this->config);
@@ -340,16 +440,16 @@ class UssdFramework
         return $session;
     }
 
-    protected function createNewSession(string $phoneNumber, string $sessionId, Request $request): UssdSession
+    protected function attemptIntelligentRecovery(array $sessionData, Request $request): ?array
     {
-        $session = new UssdSession($request, $this->config);
-        $session->setStatus('new');
-
-        if ($this->config['enable_session_analytics']) {
-            $this->trackSessionCreation($phoneNumber, $sessionId);
+        foreach ($this->sessionRecoveryHandlers as $recoveryType => $handler) {
+            $context = $handler($sessionData, $request, $this->config);
+            if ($context) {
+                return $context;
+            }
         }
 
-        return $session;
+        return null;
     }
 
     protected function createNewSessionWithContext(array $expiredSessionData, Request $request): UssdSession
@@ -367,6 +467,45 @@ class UssdFramework
         $session->setFlag('context_preserved', true);
 
         return $session;
+    }
+
+    protected function createNewSession(string $phoneNumber, string $sessionId, Request $request): UssdSession
+    {
+        $session = new UssdSession($request, $this->config);
+        $session->setStatus('new');
+
+        if ($this->config['enable_session_analytics']) {
+            $this->trackSessionCreation($phoneNumber, $sessionId);
+        }
+
+        return $session;
+    }
+
+    protected function trackSessionCreation(string $phoneNumber, string $sessionId): void
+    {
+        $this->analytics?->trackSession($phoneNumber, 'created', ['session_id' => $sessionId]);
+    }
+
+    protected function getPreservableUserData(array $userData): array
+    {
+        $preservableKeys = ['user_preferences', 'language', 'timezone', 'user_profile', 'account_info'];
+
+        return array_intersect_key($userData, array_flip($preservableKeys));
+    }
+
+    protected function executeHooks(string $event, array $params = []): void
+    {
+        if (isset($this->hooks[$event])) {
+            foreach ($this->hooks[$event] as $callback) {
+                try {
+                    call_user_func_array($callback, $params);
+                } catch (Exception $e) {
+                    Log::error("Hook execution failed for event: {$event}", [
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+        }
     }
 
     protected function handleSessionContinuation(): ?UssdResponse
@@ -391,6 +530,22 @@ class UssdFramework
         }
 
         return null;
+    }
+
+    protected function getCurrentMenu(): UssdMenuInterface
+    {
+        $menuName = $this->session->getCurrentMenu() ?: $this->config['default_menu'];
+
+        return $this->getMenu($menuName);
+    }
+
+    public function getMenu(string $name): UssdMenuInterface
+    {
+        if (! isset($this->menus[$name])) {
+            throw new Exception("Menu '{$name}' not found");
+        }
+
+        return $this->menus[$name];
     }
 
     protected function buildContinuationMenu(string $message): UssdResponse
@@ -451,9 +606,7 @@ class UssdFramework
         $currentMenu = $this->getCurrentMenu();
 
         try {
-            $response = $currentMenu->process($text, $session);
-
-            return $response ?: new UssdResponse('END Service error. Please try again.', UssdResponse::END);
+            return $currentMenu->process($text, $session);
         } catch (Exception $e) {
             Log::error('USSD: Menu processing error', [
                 'error' => $e->getMessage(),
@@ -510,6 +663,27 @@ class UssdFramework
         return $this->navigateToDefaultMenu();
     }
 
+    public function navigateToMenu(string $menuName, array $data = []): void
+    {
+        $previousMenu = $this->session->getCurrentMenu();
+        $this->session->setCurrentMenu($menuName);
+        $this->session->setMenuData($data);
+
+        $this->analytics?->trackUserJourney(
+            $this->request->input('phoneNumber'),
+            $previousMenu,
+            $menuName,
+            'navigate'
+        );
+    }
+
+    protected function navigateToDefaultMenu(): UssdResponse
+    {
+        $this->navigateToMenu($this->config['default_menu']);
+
+        return $this->getCurrentMenu()->display($this->session);
+    }
+
     protected function resumeNavigation(): UssdResponse
     {
         return $this->getCurrentMenu()->display($this->session);
@@ -527,13 +701,6 @@ class UssdFramework
         $this->session->reset();
 
         return new UssdResponse('Session cancelled. Returning to main menu.', UssdResponse::CONTINUE);
-    }
-
-    protected function navigateToDefaultMenu(): UssdResponse
-    {
-        $this->navigateToMenu($this->config['default_menu']);
-
-        return $this->getCurrentMenu()->display($this->session);
     }
 
     protected function handleGlobalNavigation(string $input, UssdSession $session): ?UssdResponse
@@ -599,72 +766,6 @@ class UssdFramework
         return $this->handleHomeNavigation($session);
     }
 
-    protected function handleHomeNavigation(UssdSession $session): UssdResponse
-    {
-        $currentMenu = $session->getCurrentMenu();
-        $defaultMenu = $this->config['default_menu'];
-
-        if ($currentMenu === $defaultMenu) {
-            $menu = $this->getCurrentMenu();
-
-            return $menu->process('', $session);
-        }
-
-        $session->reset();
-        $this->navigateToMenu($defaultMenu);
-        $menu = $this->getCurrentMenu();
-
-        return $menu->process('', $session);
-    }
-
-    public function registerMenu(string $name, UssdMenuInterface $menu): static
-    {
-        $this->menus[$name] = $menu;
-        $menu->setFramework($this);
-
-        if (method_exists($menu, 'setCacheManager') && $this->cacheManager) {
-            $menu->setCacheManager($this->cacheManager);
-        }
-
-        if (method_exists($menu, 'setAnalytics') && $this->analytics) {
-            $menu->setAnalytics($this->analytics);
-        }
-
-        return $this;
-    }
-
-    public function registerMenus(array $menus): static
-    {
-        foreach ($menus as $name => $menu) {
-            $this->registerMenu($name, $menu);
-        }
-
-        return $this;
-    }
-
-    public function getMenu(string $name): UssdMenuInterface
-    {
-        if (! isset($this->menus[$name])) {
-            throw new Exception("Menu '{$name}' not found");
-        }
-
-        return $this->menus[$name];
-    }
-
-    public function navigateToMenu(string $menuName, array $data = []): void
-    {
-        $previousMenu = $this->session->getCurrentMenu();
-        $this->session->setCurrentMenu($menuName);
-        $this->session->setMenuData($data);
-
-        $this->analytics?->trackUserJourney(
-            $this->request->input('phoneNumber'),
-            $previousMenu,
-            $menuName,
-            'navigate'
-        );
-    }
-
     public function goBack(): bool
     {
         $currentMenu = $this->session->getCurrentMenu();
@@ -683,166 +784,27 @@ class UssdFramework
         return $result;
     }
 
-    protected function getCurrentMenu(): UssdMenuInterface
+    protected function handleHomeNavigation(UssdSession $session): UssdResponse
     {
-        $menuName = $this->session->getCurrentMenu() ?: $this->config['default_menu'];
+        $currentMenu = $session->getCurrentMenu();
+        $defaultMenu = $this->config['default_menu'];
 
-        return $this->getMenu($menuName);
-    }
+        if ($currentMenu === $defaultMenu) {
+            $menu = $this->getCurrentMenu();
 
-    public function getCurrentMenuPublic(): UssdMenuInterface
-    {
-        return $this->getCurrentMenu();
-    }
-
-    public function getSession(): ?UssdSession
-    {
-        return $this->session;
-    }
-
-    public function cleanupSessions(): int
-    {
-        return 0;
-    }
-
-    public function migrateSession(string $fromPhoneNumber, string $toPhoneNumber): bool
-    {
-        if (!$this->config['enable_session_migration']) {
-            return true;
+            return $menu->process('', $session);
         }
 
-        return false;
-    }
+        $session->reset();
+        $this->navigateToMenu($defaultMenu);
+        $menu = $this->getCurrentMenu();
 
-    public function addHook(string $event, callable $callback): static
-    {
-        if (! isset($this->hooks[$event])) {
-            $this->hooks[$event] = [];
-        }
-        $this->hooks[$event][] = $callback;
-
-        return $this;
-    }
-
-    protected function executeHooks(string $event, array $params = []): void
-    {
-        if (isset($this->hooks[$event])) {
-            foreach ($this->hooks[$event] as $callback) {
-                if (is_callable($callback)) {
-                    try {
-                        call_user_func_array($callback, $params);
-                    } catch (Exception $e) {
-                        Log::error("Hook execution failed for event: {$event}", [
-                            'error' => $e->getMessage(),
-                        ]);
-                    }
-                }
-            }
-        }
-    }
-
-    public function getConfig(?string $key = null, mixed $default = null): mixed
-    {
-        if ($key === null) {
-            return $this->config;
-        }
-
-        return data_get($this->config, $key, $default);
-    }
-
-    public function getCacheManager(): ?UssdCacheManager
-    {
-        return $this->cacheManager;
-    }
-
-    public function getAnalytics(): ?UssdAnalytics
-    {
-        return $this->analytics;
-    }
-
-    public function getDatabaseService(): ?UssdDatabaseService
-    {
-        return $this->databaseService;
-    }
-
-    public function getPerformanceMetrics(): array
-    {
-        return $this->performanceMetrics;
-    }
-
-    public function getHealthStatus(): array
-    {
-        return [
-            'status' => 'healthy',
-            'components' => [
-                'cache' => $this->cacheManager ? 'enabled' : 'disabled',
-                'rate_limiter' => $this->rateLimiter ? 'enabled' : 'disabled',
-                'input_sanitizer' => $this->inputSanitizer ? 'enabled' : 'disabled',
-                'audit_logger' => $this->auditLogger ? 'enabled' : 'disabled',
-                'analytics' => $this->analytics ? 'enabled' : 'disabled',
-            ],
-            'session_management' => [
-                'continuation_enabled' => $this->sessionContinuationEnabled,
-                'persistence_strategy' => $this->config['persistence_strategy'],
-                'intelligent_recovery' => $this->config['enable_intelligent_recovery'],
-                'context_preservation' => $this->config['enable_context_preservation'],
-            ],
-            'performance' => $this->getPerformanceMetrics(),
-            'uptime' => microtime(true) - $this->startTime,
-        ];
-    }
-
-    protected function calculateFormCompletionPercentage(array $sessionData): int
-    {
-        if (! isset($sessionData['form_data']) || ! isset($sessionData['form_config'])) {
-            return 0;
-        }
-
-        $formData = $sessionData['form_data'];
-        $formConfig = $sessionData['form_config'];
-
-        if (empty($formConfig['fields'])) {
-            return 0;
-        }
-
-        $totalFields = count($formConfig['fields']);
-        $completedFields = count(array_filter($formData));
-
-        return intval(($completedFields / $totalFields) * 100);
-    }
-
-    protected function getPreservableUserData(array $userData): array
-    {
-        $preservableKeys = ['user_preferences', 'language', 'timezone', 'user_profile', 'account_info'];
-
-        return array_intersect_key($userData, array_flip($preservableKeys));
-    }
-
-    protected function extractPhoneNumber(Request $request): string
-    {
-        return $request->phoneNumber ?? $request->input('phoneNumber') ?? $request->input('msisdn') ?? '';
-    }
-
-    protected function generateSessionId(): string
-    {
-        return uniqid('ussd_', true);
-    }
-
-    protected function retrieveSession(string $phoneNumber): ?array
-    {
-        // This would use the persistence strategy
-        // For now, just return null - implement based on your storage choice
-        return null;
-    }
-
-    protected function trackSessionCreation(string $phoneNumber, string $sessionId): void
-    {
-        $this->analytics?->trackSession($phoneNumber, 'created', ['session_id' => $sessionId]);
+        return $menu->process('', $session);
     }
 
     protected function saveSessionToDatabase(UssdResponse $response): void
     {
-        $this->databaseService->saveUserSession(
+        $this->databaseService?->saveUserSession(
             sessionId: $this->session->getSessionId(),
             phoneNumber: $this->session->getPhoneNumber(),
             currentMenu: $this->session->getCurrentMenu() ?? $this->config['default_menu'],
@@ -854,13 +816,13 @@ class UssdFramework
 
     protected function handleError(Exception $e, string $phoneNumber, string $userInput): void
     {
-        $sessionContext = $this->session ? [
+        $sessionContext = [
             'session_id' => $this->session->getSessionId(),
             'current_menu' => $this->session->getCurrentMenu(),
             'step' => $this->session->getStep(),
             'status' => $this->session->getStatus(),
             'is_recovered' => $this->session->isRecovered(),
-        ] : [];
+        ];
 
         Log::error('Unified USSD Framework Error', [
             'error' => $e->getMessage(),
@@ -884,7 +846,7 @@ class UssdFramework
             Log::warning('Slow USSD request detected', [
                 'duration_ms' => $totalTime,
                 'phone' => $phoneNumber,
-                'menu' => $this->session?->getCurrentMenu(),
+                'menu' => $this->session->getCurrentMenu(),
                 'input' => $userInput,
             ]);
         }
@@ -900,5 +862,39 @@ class UssdFramework
         }
 
         $this->performanceMetrics[$action] = $duration;
+    }
+
+    public function migrateSession(string $fromPhoneNumber, string $toPhoneNumber): bool
+    {
+        if (! $this->config['enable_session_migration']) {
+            return true;
+        }
+
+        return false;
+    }
+
+    public function registerMenus(array $menus): static
+    {
+        foreach ($menus as $name => $menu) {
+            $this->registerMenu($name, $menu);
+        }
+
+        return $this;
+    }
+
+    public function registerMenu(string $name, UssdMenuInterface $menu): static
+    {
+        $this->menus[$name] = $menu;
+        $menu->setFramework($this);
+
+        if (method_exists($menu, 'setCacheManager') && $this->cacheManager) {
+            $menu->setCacheManager($this->cacheManager);
+        }
+
+        if (method_exists($menu, 'setAnalytics') && $this->analytics) {
+            $menu->setAnalytics($this->analytics);
+        }
+
+        return $this;
     }
 }

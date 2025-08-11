@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 namespace Moffhub\Ussd\Menus;
 
+use Moffhub\Ussd\Interfaces\DataProviderInterface;
 use Moffhub\Ussd\UssdResponse;
 use Moffhub\Ussd\UssdSession;
 
 class SearchablePaginatedMenu extends PaginatedMenu
 {
-    protected $searchable;
+    protected bool $searchable;
 
-    protected $searchFields;
+    protected array $searchFields;
 
-    public function __construct($title, $dataProvider, $options = [])
+    public function __construct(string $title, DataProviderInterface $dataProvider, array $options = [])
     {
         parent::__construct($title, $dataProvider, $options);
 
@@ -28,7 +29,7 @@ class SearchablePaginatedMenu extends PaginatedMenu
         return parent::showInitial($session);
     }
 
-    protected function handleNavigationCommand($command, UssdSession $session): UssdResponse
+    protected function handleNavigationCommand(string $command, UssdSession $session): UssdResponse
     {
         $navConfig = $this->config['navigation'];
 
@@ -39,7 +40,7 @@ class SearchablePaginatedMenu extends PaginatedMenu
         return parent::handleNavigationCommand($command, $session);
     }
 
-    protected function processStep($input, $step, UssdSession $session): UssdResponse
+    protected function processStep(string $input, int $step, UssdSession $session): UssdResponse
     {
         $searchQuery = $session->getFormData('search_query');
 
@@ -57,7 +58,7 @@ class SearchablePaginatedMenu extends PaginatedMenu
         return UssdResponse::continue('Enter search term:');
     }
 
-    protected function showSearchResults($query, UssdSession $session): UssdResponse
+    protected function showSearchResults(string $query, UssdSession $session): UssdResponse
     {
         $allData = $this->getData($session);
         $filteredData = $this->filterData($allData, $query);
@@ -72,7 +73,7 @@ class SearchablePaginatedMenu extends PaginatedMenu
         return $response;
     }
 
-    protected function filterData($data, $query): array
+    protected function filterData(array $data, string $query): array
     {
         $query = strtolower(trim($query));
 
@@ -90,7 +91,7 @@ class SearchablePaginatedMenu extends PaginatedMenu
         });
     }
 
-    protected function getNavigationOptions($currentPage = null, $totalPages = null): string
+    protected function getNavigationOptions(?int $currentPage = null, ?int $totalPages = null): string
     {
         $options = parent::getNavigationOptions($currentPage, $totalPages);
 

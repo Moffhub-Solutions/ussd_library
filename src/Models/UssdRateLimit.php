@@ -1,6 +1,5 @@
 <?php
 
-
 declare(strict_types=1);
 
 namespace App\Models;
@@ -19,7 +18,4 @@ use Illuminate\Database\Eloquent\Model;
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
-class UssdRateLimit extends Model
-{
-
-}
+class UssdRateLimit extends Model {}

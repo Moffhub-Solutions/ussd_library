@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Moffhub\Ussd\Menus;
 
+use Closure;
 use Exception;
 use Moffhub\Ussd\Helpers\FormField;
-use Moffhub\Ussd\Interfaces\ActionInterface;
 use Moffhub\Ussd\UssdResponse;
 use Moffhub\Ussd\UssdSession;
 
@@ -14,11 +14,12 @@ class FormMenu extends UssdMenu
 {
     protected string $title;
 
+    /** @var array<string, FormField> */
     protected array $fields = [];
 
-    protected $onComplete;
+    protected ?Closure $onComplete;
 
-    public function __construct($title, $fields = [], $onComplete = null)
+    public function __construct(string $title, array $fields = [], ?Closure $onComplete = null)
     {
         parent::__construct($title);
         $this->title = $title;
@@ -26,13 +27,13 @@ class FormMenu extends UssdMenu
         $this->onComplete = $onComplete;
     }
 
-    public function setFields($fields): static
+    public function setFields(array $fields): static
     {
         foreach ($fields as $name => $config) {
             if ($config instanceof FormField) {
                 $this->fields[$name] = $config;
             } else {
-                $prompt = $config['prompt'] ?? "Enter {$name}:";
+                $prompt = $config['prompt'] ?? "Enter $name:";
                 $this->fields[$name] = new FormField($name, $prompt, $config);
             }
         }
@@ -55,7 +56,7 @@ class FormMenu extends UssdMenu
         return UssdResponse::continue($message);
     }
 
-    protected function processStep($input, $step, UssdSession $session): UssdResponse
+    protected function processStep(string $input, int $step, UssdSession $session): UssdResponse
     {
         $navigation = $this->config['navigation'] ?? [];
         $navCommands = array_filter([
@@ -153,6 +154,9 @@ class FormMenu extends UssdMenu
 
                 return UssdResponse::continue($message);
             }
+            if (! $framework) {
+                throw new Exception('Framework is not set for paginated menu.');
+            }
 
             $paginatedMenu = new PaginatedMenu(
                 $field->prompt,
@@ -175,7 +179,6 @@ class FormMenu extends UssdMenu
                     },
                 ]
             );
-
             $paginatedMenu->setFramework($framework);
             $paginatedMenu->setConfig($this->config);
 
@@ -197,12 +200,8 @@ class FormMenu extends UssdMenu
         try {
             $formData = $session->getFormData();
 
-            if ($this->onComplete) {
-                if ($this->onComplete instanceof ActionInterface) {
-                    return $this->onComplete->execute(null, $session, $this->framework);
-                } elseif (is_callable($this->onComplete)) {
-                    return ($this->onComplete)($session, $this->framework);
-                }
+            if ($this->onComplete && $this->framework) {
+                return call_user_func($this->onComplete, $formData, $session, $this->framework);
             }
 
             return UssdResponse::end('Form completed successfully!');
@@ -265,7 +264,7 @@ class FormMenu extends UssdMenu
         }
 
         $progress = $this->getFormProgress($session);
-        $progressText = "Progress: {$progress}%";
+        $progressText = "Progress: $progress%";
 
         return $progressText."\n\n".$message;
     }

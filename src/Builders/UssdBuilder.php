@@ -3,7 +3,6 @@
 namespace Moffhub\Ussd\Builders;
 
 use Closure;
-use Moffhub\Ussd\Interfaces\UssdMenuInterface;
 use Moffhub\Ussd\Menus\ConditionalMenu;
 use Moffhub\Ussd\Menus\PaginatedMenu;
 use Moffhub\Ussd\Menus\SearchablePaginatedMenu;
@@ -14,10 +13,10 @@ use Moffhub\Ussd\UssdFramework;
 
 class UssdBuilder
 {
-    protected UssdFramework $framework;
+    protected ?UssdFramework $framework = null;
 
     /**
-     * @var array<string, UssdMenu>
+     * @var array<string, UssdMenu|UssdBuilder>
      */
     protected array $menus = [];
 
@@ -26,10 +25,14 @@ class UssdBuilder
         $this->framework = $framework ?: new UssdFramework;
     }
 
-    public static function create(array $config = []): self
+    /**
+     * @phpstan-return static
+     */
+    public static function create(array $config = []): static
     {
         $framework = new UssdFramework($config);
 
+        /** @phpstan-ignore-next-line */
         return new static($framework);
     }
 
@@ -52,7 +55,7 @@ class UssdBuilder
         return $this;
     }
 
-    public function formMenu(string $name, string $title, array $fields = [], ?callable $onComplete = null): static
+    public function formMenu(string $name, string $title, array $fields = [], ?Closure $onComplete = null): static
     {
         $menu = new UssdMenu($title);
         $menu->setType('form');
@@ -64,7 +67,7 @@ class UssdBuilder
         return $this;
     }
 
-    public function enhancedFormMenu(string $name, string $title, array $fields = [], ?callable $onComplete = null): static
+    public function enhancedFormMenu(string $name, string $title, array $fields = [], ?Closure $onComplete = null): static
     {
         $menu = new UssdMenu($title);
         $menu->setType('enhanced_form');
@@ -77,7 +80,7 @@ class UssdBuilder
         return $this;
     }
 
-    public function flexibleForm(string $name, string $title, ?callable $callback = null, ?callable $onComplete = null): static
+    public function flexibleForm(string $name, string $title, ?Closure $callback = null, ?Closure $onComplete = null): static
     {
         $formBuilder = new FlexibleFormBuilder($title, $onComplete);
 
@@ -113,7 +116,7 @@ class UssdBuilder
         return new ConditionalMenuBuilder($menu, $this);
     }
 
-    public function wizardMenu(string $name, string $title, array $steps = [], ?callable $onComplete = null): static
+    public function wizardMenu(string $name, string $title, array $steps = [], ?Closure $onComplete = null): static
     {
         $this->menus[$name] = new WizardMenu($title, $steps, $onComplete);
 
@@ -128,7 +131,7 @@ class UssdBuilder
         return new UnifiedMenuBuilder($menu, $this);
     }
 
-    public function customMenu(string $name, UssdMenuInterface $menu): static
+    public function customMenu(string $name, UssdMenu $menu): static
     {
         $this->menus[$name] = $menu;
 
@@ -137,41 +140,42 @@ class UssdBuilder
 
     public function onBeforeProcess(callable $callback): static
     {
-        $this->framework->addHook('before_process', $callback);
+        $this->framework?->addHook('before_process', $callback);
 
         return $this;
     }
 
     public function onAfterProcess(callable $callback): static
     {
-        $this->framework->addHook('after_process', $callback);
+        $this->framework?->addHook('after_process', $callback);
 
         return $this;
     }
 
     public function onError(callable $callback): static
     {
-        $this->framework->addHook('on_error', $callback);
+        $this->framework?->addHook('on_error', $callback);
 
         return $this;
     }
 
     public function onSessionRecovery(callable $callback): static
     {
-        $this->framework->addHook('session_recovery', $callback);
+        $this->framework?->addHook('session_recovery', $callback);
 
         return $this;
     }
 
     public function configureSession(array $config): static
     {
-        $currentConfig = $this->framework->getConfig();
+        $currentConfig = $this->framework?->getConfig();
         $mergedConfig = array_merge($currentConfig, $config);
-
-        $reflection = new \ReflectionClass($this->framework);
-        $configProperty = $reflection->getProperty('config');
-        $configProperty->setAccessible(true);
-        $configProperty->setValue($this->framework, $mergedConfig);
+        if ($this->framework) {
+            $reflection = new \ReflectionClass($this->framework);
+            $configProperty = $reflection->getProperty('config');
+            $configProperty->setAccessible(true);
+            $configProperty->setValue($this->framework, $mergedConfig);
+        }
 
         return $this;
     }
@@ -207,12 +211,16 @@ class UssdBuilder
 
     public function build(): UssdFramework
     {
-        $this->framework->registerMenus($this->menus);
+        if ($this->framework) {
+            $this->framework->registerMenus($this->menus);
 
-        return $this->framework;
+            return $this->framework;
+        }
+
+        return new UssdFramework;
     }
 
-    public function getFramework(): UssdFramework
+    public function getFramework(): ?UssdFramework
     {
         return $this->framework;
     }

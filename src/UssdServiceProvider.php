@@ -12,6 +12,9 @@ class UssdServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        if (! defined('LARAVEL_START')) {
+            define('LARAVEL_START', microtime(true));
+        }
         $this->publishes([
             __DIR__.'/Config/ussd.php' => config_path('ussd.php'),
         ], 'config');

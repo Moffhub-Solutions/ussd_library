@@ -2,7 +2,7 @@
 
 namespace Moffhub\Ussd\Builders;
 
-
+use Closure;
 use Moffhub\Ussd\Menus\UssdMenu;
 
 class UnifiedMenuBuilder
@@ -82,28 +82,28 @@ class UnifiedMenuBuilder
         return $this;
     }
 
-    public function setOnComplete(callable $callback): self
+    public function setOnComplete(Closure $callback): self
     {
         $this->menu->setOnComplete($callback);
 
         return $this;
     }
 
-    public function setItemFormatter(callable $formatter): self
+    public function setItemFormatter(Closure $formatter): self
     {
         $this->menu->setItemFormatter($formatter);
 
         return $this;
     }
 
-    public function setValidator(callable $validator): self
+    public function setValidator(Closure $validator): self
     {
         $this->menu->setValidator($validator);
 
         return $this;
     }
 
-    public function addCondition(callable $condition, mixed $action): self
+    public function addCondition(Closure $condition, mixed $action): self
     {
         $this->menu->addCondition($condition, $action);
 

@@ -13,13 +13,13 @@ use Throwable;
 
 class UssdAuditLogger
 {
-    protected $config;
+    protected array $config;
 
-    protected $context;
+    protected array $context;
 
     protected ?UssdDatabaseService $databaseService = null;
 
-    public function __construct($config = [])
+    public function __construct(array $config = [])
     {
         $this->config = array_merge([
             'enabled' => true,
@@ -47,7 +47,7 @@ class UssdAuditLogger
         $this->databaseService = $databaseService;
     }
 
-    public function logAction($action, $phoneNumber, $details = [], $level = 'info'): bool
+    public function logAction(string $action, string $phoneNumber, array $details = [], string $level = 'info'): bool
     {
         if (! $this->isEnabled()) {
             return false;
@@ -58,7 +58,7 @@ class UssdAuditLogger
         return $this->writeLog($logData, $level);
     }
 
-    public function logSecurity($event, $phoneNumber, $details = [], $level = 'warning'): bool
+    public function logSecurity(string $event, string $phoneNumber, array $details = [], string $level = 'warning'): bool
     {
         if (! $this->config['log_security_events']) {
             return false;
@@ -72,7 +72,7 @@ class UssdAuditLogger
         return $this->writeLog($logData, $level);
     }
 
-    protected function saveSecurityEventToDatabase($eventType, $phoneNumber, $details, $severity): void
+    protected function saveSecurityEventToDatabase(string $eventType, string $phoneNumber, array $details, string $severity): void
     {
         if ($this->databaseService) {
             $this->databaseService->saveSecurityEvent($eventType, $phoneNumber, $details, $severity);
@@ -105,7 +105,7 @@ class UssdAuditLogger
         }
     }
 
-    public function logAuth($action, $phoneNumber, $success = true, $details = []): bool
+    public function logAuth(string $action, string $phoneNumber, bool $success = true, array $details = []): bool
     {
         $event = $success ? 'auth_success' : 'auth_failure';
         $level = $success ? 'info' : 'warning';
@@ -116,7 +116,7 @@ class UssdAuditLogger
         return $this->logSecurity($event, $phoneNumber, $details, $level);
     }
 
-    public function logDataAccess($resource, $phoneNumber, $action = 'read', $details = []): bool
+    public function logDataAccess(string $resource, string $phoneNumber, string $action = 'read', array $details = []): bool
     {
         $logData = $this->buildLogData('data_access', $phoneNumber, array_merge($details, [
             'resource' => $resource,
@@ -126,7 +126,7 @@ class UssdAuditLogger
         return $this->writeLog($logData, 'info');
     }
 
-    public function logTransaction($type, $phoneNumber, $amount, $details = []): bool
+    public function logTransaction(string $type, string $phoneNumber, float|string $amount, array $details = []): bool
     {
         $logData = $this->buildLogData('transaction', $phoneNumber, array_merge($details, [
             'transaction_type' => $type,
@@ -137,7 +137,7 @@ class UssdAuditLogger
         return $this->writeLog($logData, 'info');
     }
 
-    public function logError($error, $phoneNumber = null, $details = []): bool
+    public function logError(Throwable $error, string $phoneNumber, array $details = []): bool
     {
         $errorDetails = [
             'error_message' => $error instanceof Exception ? $error->getMessage() : (string) $error,
@@ -152,7 +152,7 @@ class UssdAuditLogger
         return $this->writeLog($logData, 'error');
     }
 
-    public function logPerformance($action, $phoneNumber, $duration, $details = []): bool
+    public function logPerformance(string $action, string $phoneNumber, int $duration, array $details = []): bool
     {
         if (! $this->config['log_performance_metrics']) {
             return false;
@@ -167,7 +167,7 @@ class UssdAuditLogger
         return $this->writeLog($logData, 'info');
     }
 
-    public function logSession($event, $phoneNumber, $sessionId, $details = []): bool
+    public function logSession(string $event, string $phoneNumber, string $sessionId, array $details = []): bool
     {
         $logData = $this->buildLogData('session_'.$event, $phoneNumber, array_merge($details, [
             'session_id' => $sessionId,
@@ -177,7 +177,7 @@ class UssdAuditLogger
         return $this->writeLog($logData, 'info');
     }
 
-    protected function buildLogData($action, $phoneNumber, $details, $category): array
+    protected function buildLogData(string $action, string $phoneNumber, array $details, string $category): array
     {
         $request = request();
 
@@ -194,12 +194,12 @@ class UssdAuditLogger
             'metadata' => [
                 'memory_usage' => memory_get_usage(true),
                 'peak_memory' => memory_get_peak_usage(true),
-                'execution_time' => microtime(true) - LARAVEL_START,
+                'execution_time' => defined('LARAVEL_START') ? (microtime(true) - LARAVEL_START) : null,
             ],
         ]);
     }
 
-    protected function writeLog($logData, $level): bool
+    protected function writeLog(array $logData, string $level): bool
     {
         try {
             foreach ($this->config['channels'] as $channel) {
@@ -222,7 +222,7 @@ class UssdAuditLogger
         }
     }
 
-    protected function storeInDatabase($logData): void
+    protected function storeInDatabase(array $logData): void
     {
         try {
             DB::table($this->config['table_name'])->insert([
@@ -246,7 +246,7 @@ class UssdAuditLogger
         }
     }
 
-    protected function sanitizePhoneNumber($phoneNumber): ?string
+    protected function sanitizePhoneNumber(string $phoneNumber): ?string
     {
         if (empty($phoneNumber)) {
             return null;
@@ -255,7 +255,7 @@ class UssdAuditLogger
         return hash('sha256', $phoneNumber);
     }
 
-    protected function sanitizeDetails($details)
+    protected function sanitizeDetails(array|string $details): array|string
     {
         if (! is_array($details)) {
             return $details;
@@ -274,7 +274,7 @@ class UssdAuditLogger
         return $sanitized;
     }
 
-    protected function maskSensitiveData($value): string
+    protected function maskSensitiveData(string|int $value): string
     {
         if (is_string($value) && strlen($value) > 4) {
             return substr($value, 0, 2).str_repeat('*', strlen($value) - 4).substr($value, -2);
@@ -283,7 +283,7 @@ class UssdAuditLogger
         return '***';
     }
 
-    protected function sanitizeAmount($amount)
+    protected function sanitizeAmount(string|float $amount): float|string
     {
         if (is_numeric($amount)) {
             return round(floatval($amount), 0);
@@ -292,7 +292,7 @@ class UssdAuditLogger
         return $amount;
     }
 
-    protected function calculateSecuritySeverity($event, $details): string
+    protected function calculateSecuritySeverity(string $event, array $details): string
     {
         $highSeverityEvents = [
             'auth_failure',
@@ -317,7 +317,7 @@ class UssdAuditLogger
         return 'low';
     }
 
-    protected function classifyPerformance($duration): string
+    protected function classifyPerformance(int $duration): string
     {
         if ($duration < 100) {
             return 'excellent';
@@ -332,7 +332,7 @@ class UssdAuditLogger
         }
     }
 
-    protected function isEnabled()
+    protected function isEnabled(): bool
     {
         return $this->config['enabled'] ?? true;
     }
@@ -357,7 +357,7 @@ class UssdAuditLogger
         return $deleted;
     }
 
-    public function getStats($startDate = null, $endDate = null): array
+    public function getStats(?string $startDate = null, ?string $endDate = null): array
     {
         if (! $this->config['store_in_database']) {
             return ['error' => 'Database storage not enabled'];

@@ -25,7 +25,7 @@ class UssdResponse
 
     protected function sanitizeMessage(string $message): string
     {
-        $message = preg_replace('/\s+/', ' ', $message);
+        $message = preg_replace('/\s+/', ' ', $message) ?? '';
 
         $message = str_replace(["\r\n", "\r"], "\n", $message);
 
@@ -341,6 +341,7 @@ class UssdResponse
     {
         return $this->getMetadataValue('type') === 'success';
     }
+
     public function isValidationError(): bool
     {
         return $this->getMetadataValue('type') === 'validation_error';
@@ -353,15 +354,17 @@ class UssdResponse
 
         return $this;
     }
+
     public function removeMetadata(string $key): self
     {
         unset($this->metadata[$key]);
 
         return $this;
     }
+
     public function toJson(): string
     {
-        return json_encode($this->toArray(), JSON_UNESCAPED_UNICODE);
+        return json_encode($this->toArray(), JSON_UNESCAPED_UNICODE) ?: '';
     }
 
     public function toArray(): array

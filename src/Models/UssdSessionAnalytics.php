@@ -18,7 +18,4 @@ use Illuminate\Database\Eloquent\Model;
  * @property \Carbon\CarbonImmutable|null $created_at
  * @property \Carbon\CarbonImmutable|null $updated_at
  */
-class UssdSessionAnalytics extends Model
-{
-
-}
+class UssdSessionAnalytics extends Model {}

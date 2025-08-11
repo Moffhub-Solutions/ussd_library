@@ -4,20 +4,22 @@ declare(strict_types=1);
 
 namespace Moffhub\Ussd\Menus;
 
-use Moffhub\Ussd\Interfaces\ActionInterface;
+use Closure;
 use Moffhub\Ussd\Interfaces\DataProviderInterface;
 use Moffhub\Ussd\UssdResponse;
 use Moffhub\Ussd\UssdSession;
 
 class PaginatedMenu extends UssdMenu
 {
-    protected string $title;
-
     protected mixed $dataProvider;
 
-    protected $itemFormatter;
+    protected string $emptyMessage;
 
-    protected $itemAction;
+    protected array $filters = [];
+
+    protected ?Closure $itemAction;
+
+    protected ?Closure $itemFormatter;
 
     protected int $maxSmsLength;
 
@@ -25,11 +27,9 @@ class PaginatedMenu extends UssdMenu
 
     protected bool $showNavigationHelp;
 
-    protected string $emptyMessage;
+    protected string $title;
 
-    protected array $filters = [];
-
-    public function __construct($title, $dataProvider, $options = [])
+    public function __construct(string $title, DataProviderInterface $dataProvider, array $options = [])
     {
         parent::__construct($title);
         $this->title = $title;
@@ -56,19 +56,45 @@ class PaginatedMenu extends UssdMenu
         $this->filters = $options['filters'];
     }
 
-    protected function showInitial(UssdSession $session): UssdResponse
+    public function setFilters(array $filters): static
     {
-        $session->setMenuData([
-            'current_page' => 1,
-            'total_pages' => 0,
-            'total_items' => 0,
-            'data' => [],
-        ]);
+        $this->filters = $filters;
 
-        return $this->showPage(1, $session);
+        return $this;
     }
 
-    protected function processStep($input, $step, UssdSession $session): UssdResponse
+    public function setItemAction(?Closure $action): static
+    {
+        $this->itemAction = $action;
+
+        return $this;
+    }
+
+    public function setItemFormatter(?Closure $formatter): static
+    {
+        $this->itemFormatter = $formatter;
+
+        return $this;
+    }
+
+    protected function defaultItemFormatter(string $key, array|string $item, int $page = 1): string
+    {
+        if (is_array($item)) {
+            if (isset($item['name'])) {
+                return "$key. {$item['name']}";
+            } elseif (isset($item['title'])) {
+                return "$key. {$item['title']}";
+            } elseif (isset($item['description'])) {
+                return "$key. {$item['description']}";
+            } else {
+                return "$key. ".json_encode($item);
+            }
+        }
+
+        return "$key. $item";
+    }
+
+    protected function processStep(string $input, int $step, UssdSession $session): UssdResponse
     {
         $input = trim($input);
 
@@ -79,7 +105,52 @@ class PaginatedMenu extends UssdMenu
         return $this->handleItemSelection($input, $session);
     }
 
-    protected function showPage($pageNumber, UssdSession $session): UssdResponse
+    protected function isNavigationCommand(string $input): bool
+    {
+        $navCommands = array_filter([
+            $this->getNavigationCommand('next'),
+            $this->getNavigationCommand('back'),
+            $this->getNavigationCommand('home'),
+        ]);
+
+        return in_array($input, $navCommands, true);
+    }
+
+    protected function handleNavigationCommand(string $command, UssdSession $session): UssdResponse
+    {
+        $menuData = $session->getMenuData();
+        $currentPage = $menuData['current_page'] ?? 1;
+        $totalPages = $menuData['total_pages'] ?? 1;
+
+        $navConfig = [
+            'next' => $this->getNavigationCommand('next'),
+            'back' => $this->getNavigationCommand('back'),
+            'home' => $this->getNavigationCommand('home'),
+            'default_menu' => $this->getNavigationCommand('default_menu'),
+        ];
+
+        if ($command === $navConfig['back']) {
+            if ($this->goBack()) {
+                return UssdResponse::continue('Going back...');
+            }
+
+            return UssdResponse::end('Cannot go back further.');
+        } elseif ($command === $navConfig['home'] && $this->framework) {
+            $this->framework->navigateToMenu($this->config['default_menu']);
+
+            return $this->framework->getMenu($this->config['default_menu'])->process('', $session);
+        } elseif ($command === $navConfig['next']) {
+            if ($currentPage < $totalPages) {
+                return $this->showPage($currentPage + 1, $session);
+            }
+
+            return UssdResponse::continue('Already on last page.');
+        }
+
+        return UssdResponse::continue('Invalid command.');
+    }
+
+    protected function showPage(int $pageNumber, UssdSession $session): UssdResponse
     {
         $allData = $this->getData($session);
 
@@ -100,7 +171,11 @@ class PaginatedMenu extends UssdMenu
         $response .= "Page {$paginatedData['current_page']} of {$paginatedData['total_pages']}\n\n";
 
         foreach ($paginatedData['page_items'] as $key => $item) {
-            $response .= call_user_func($this->itemFormatter, $key, $item, $paginatedData['current_page'])."\n";
+            if ($this->itemFormatter) {
+                $response .= call_user_func($this->itemFormatter, $key, $item, $paginatedData['current_page'])."\n";
+            } else {
+                $response .= $this->defaultItemFormatter($key, $item, $paginatedData['current_page'])."\n";
+            }
         }
 
         $response .= "\n".$this->getNavigationOptions($paginatedData['current_page'], $paginatedData['total_pages']);
@@ -112,7 +187,7 @@ class PaginatedMenu extends UssdMenu
         return UssdResponse::continue($response);
     }
 
-    protected function getData(UssdSession $session)
+    protected function getData(UssdSession $session): array
     {
         if ($this->dataProvider instanceof DataProviderInterface) {
             return $this->dataProvider->getData($session, $this->filters);
@@ -125,7 +200,22 @@ class PaginatedMenu extends UssdMenu
         return [];
     }
 
-    protected function calculateSmsBasedPagination($allData, $requestedPage): array
+    protected function getNavigationOptions(?int $currentPage = null, ?int $totalPages = null): string
+    {
+        $options = [];
+        $navConfig = $this->config['navigation'];
+
+        if ($currentPage && $totalPages && $currentPage < $totalPages) {
+            $options[] = $navConfig['next'].' Next';
+        }
+
+        $options[] = $navConfig['back'].' Back';
+        $options[] = $navConfig['home'].' Home';
+
+        return implode(' | ', $options);
+    }
+
+    protected function calculateSmsBasedPagination(array $allData, int $requestedPage): array
     {
         $pages = [];
         $currentPageItems = [];
@@ -136,7 +226,11 @@ class PaginatedMenu extends UssdMenu
         $pageNumber = 1;
 
         foreach ($allData as $key => $item) {
-            $formattedItem = call_user_func($this->itemFormatter, $key, $item, $pageNumber);
+            if ($this->itemFormatter) {
+                $formattedItem = call_user_func($this->itemFormatter, $key, $item, $pageNumber);
+            } else {
+                $formattedItem = $this->defaultItemFormatter($key, $item, $pageNumber);
+            }
             $itemLength = strlen($formattedItem) + 1;
 
             if ($currentPageLength + $itemLength > $availableLength && ! empty($currentPageItems)) {
@@ -165,52 +259,14 @@ class PaginatedMenu extends UssdMenu
         ];
     }
 
-    protected function isNavigationCommand($input): bool
+    protected function getNavigationHelp(): string
     {
-        $navCommands = array_filter([
-            $this->getNavigationCommand('next'),
-            $this->getNavigationCommand('back'),
-            $this->getNavigationCommand('home'),
-        ]);
+        $navConfig = $this->config['navigation'];
 
-        return in_array($input, $navCommands, true);
+        return "Commands: {$navConfig['back']}=Back, {$navConfig['home']}=Home, {$navConfig['next']}=Next";
     }
 
-    protected function handleNavigationCommand($command, UssdSession $session): UssdResponse
-    {
-        $menuData = $session->getMenuData();
-        $currentPage = $menuData['current_page'] ?? 1;
-        $totalPages = $menuData['total_pages'] ?? 1;
-
-        $navConfig = [
-            'next' => $this->getNavigationCommand('next'),
-            'back' => $this->getNavigationCommand('back'),
-            'home' => $this->getNavigationCommand('home'),
-            'default_menu' => $this->getNavigationCommand('default_menu'),
-        ];
-
-        if ($command === $navConfig['back']) {
-            if ($this->goBack()) {
-                return UssdResponse::continue('Going back...');
-            }
-
-            return UssdResponse::end('Cannot go back further.');
-        } elseif ($command === $navConfig['home']) {
-            $this->framework->navigateToMenu($this->config['default_menu']);
-
-            return $this->framework->getMenu($this->config['default_menu'])->process('', $session);
-        } elseif ($command === $navConfig['next']) {
-            if ($currentPage < $totalPages) {
-                return $this->showPage($currentPage + 1, $session);
-            }
-
-            return UssdResponse::continue('Already on last page.');
-        }
-
-        return UssdResponse::continue('Invalid command.');
-    }
-
-    protected function handleItemSelection($input, UssdSession $session): UssdResponse
+    protected function handleItemSelection(string $input, UssdSession $session): UssdResponse
     {
         if (! is_numeric($input)) {
             return UssdResponse::continue('Invalid selection. Please try again.');
@@ -234,12 +290,8 @@ class PaginatedMenu extends UssdMenu
             return UssdResponse::continue('Item not found. Please try again.');
         }
 
-        if ($this->itemAction) {
-            if ($this->itemAction instanceof ActionInterface) {
-                return $this->itemAction->execute($selectedKey, $session, $this->framework);
-            } elseif (is_callable($this->itemAction)) {
-                return call_user_func($this->itemAction, $selectedKey, $selectedItem, $session, $this->framework);
-            }
+        if ($this->itemAction && $this->framework) {
+            return call_user_func($this->itemAction, $selectedKey, $selectedItem, $session, $this->framework);
         }
 
         $itemDisplay = is_array($selectedItem) ? json_encode($selectedItem) : $selectedItem;
@@ -247,63 +299,15 @@ class PaginatedMenu extends UssdMenu
         return UssdResponse::end('You selected: '.$itemDisplay);
     }
 
-    protected function getNavigationOptions($currentPage = null, $totalPages = null): string
+    protected function showInitial(UssdSession $session): UssdResponse
     {
-        $options = [];
-        $navConfig = $this->config['navigation'];
+        $session->setMenuData([
+            'current_page' => 1,
+            'total_pages' => 0,
+            'total_items' => 0,
+            'data' => [],
+        ]);
 
-        if ($currentPage && $totalPages && $currentPage < $totalPages) {
-            $options[] = $navConfig['next'].' Next';
-        }
-
-        $options[] = $navConfig['back'].' Back';
-        $options[] = $navConfig['home'].' Home';
-
-        return implode(' | ', $options);
-    }
-
-    protected function getNavigationHelp(): string
-    {
-        $navConfig = $this->config['navigation'];
-
-        return "Commands: {$navConfig['back']}=Back, {$navConfig['home']}=Home, {$navConfig['next']}=Next";
-    }
-
-    protected function defaultItemFormatter($key, $item, $page = 1): string
-    {
-        if (is_array($item)) {
-            if (isset($item['name'])) {
-                return "$key. {$item['name']}";
-            } elseif (isset($item['title'])) {
-                return "$key. {$item['title']}";
-            } elseif (isset($item['description'])) {
-                return "$key. {$item['description']}";
-            } else {
-                return "$key. ".json_encode($item);
-            }
-        }
-
-        return "$key. $item";
-    }
-
-    public function setFilters(array $filters): static
-    {
-        $this->filters = $filters;
-
-        return $this;
-    }
-
-    public function setItemFormatter($formatter): static
-    {
-        $this->itemFormatter = $formatter;
-
-        return $this;
-    }
-
-    public function setItemAction($action): static
-    {
-        $this->itemAction = $action;
-
-        return $this;
+        return $this->showPage(1, $session);
     }
 }

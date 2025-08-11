@@ -87,7 +87,6 @@ class UssdCacheManager
         ], $ttl);
     }
 
-
     public function getDataProvider(string $providerKey, array $filters = []): mixed
     {
         if (! $this->isEnabled()) {

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Moffhub\Ussd\Menus;
 
-use Moffhub\Ussd\Interfaces\ActionInterface;
+use Closure;
 use Moffhub\Ussd\UssdResponse;
 use Moffhub\Ussd\UssdSession;
 
@@ -16,9 +16,9 @@ class WizardMenu extends UssdMenu
 
     protected int $currentStepIndex = 0;
 
-    protected $onComplete;
+    protected ?Closure $onComplete;
 
-    public function __construct($title, $steps = [], $onComplete = null)
+    public function __construct(string $title, array $steps = [], ?Closure $onComplete = null)
     {
         parent::__construct($title);
         $this->title = $title;
@@ -26,7 +26,7 @@ class WizardMenu extends UssdMenu
         $this->onComplete = $onComplete;
     }
 
-    public function addStep($name, $menu)
+    public function addStep(string $name, UssdMenu $menu): self
     {
         $this->steps[$name] = $menu;
 
@@ -40,12 +40,12 @@ class WizardMenu extends UssdMenu
         return $this->showCurrentStep($session);
     }
 
-    protected function processStep($input, $step, UssdSession $session): UssdResponse
+    protected function processStep(string $input, string $step, UssdSession $session): UssdResponse
     {
         return $this->showCurrentStep($session, $input);
     }
 
-    protected function showCurrentStep(UssdSession $session, $input = '')
+    protected function showCurrentStep(UssdSession $session, string $input = ''): UssdResponse
     {
         $menuData = $session->getMenuData();
         $currentStepIndex = $menuData['current_step'] ?? 0;
@@ -78,11 +78,13 @@ class WizardMenu extends UssdMenu
 
     protected function completeWizard(UssdSession $session): UssdResponse
     {
-        if ($this->onComplete) {
-            if ($this->onComplete instanceof ActionInterface) {
-                return $this->onComplete->execute(null, $session, $this->framework);
-            } elseif (is_callable($this->onComplete)) {
-                return ($this->onComplete)($session, $this->framework);
+        if ($this->onComplete && $this->framework) {
+            $result = call_user_func($this->onComplete, $session, $this->framework);
+            if ($result instanceof UssdResponse) {
+                return $result;
+            }
+            if (is_string($result)) {
+                return UssdResponse::end($result);
             }
         }
 

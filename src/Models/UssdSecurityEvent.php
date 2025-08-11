@@ -23,7 +23,4 @@ use Moffhub\Ussd\Enum\SeverityType;
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
-class UssdSecurityEvent extends Model
-{
-
-}
+class UssdSecurityEvent extends Model {}

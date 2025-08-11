@@ -149,6 +149,11 @@ class FormField
         return $this->config['search_fields'] ?? ['name'];
     }
 
+    public function isOptional(): bool
+    {
+        return $this->config['optional'] ?? false;
+    }
+
     public function getItemsPerPage(): int
     {
         return $this->config['items_per_page'] ?? 5;

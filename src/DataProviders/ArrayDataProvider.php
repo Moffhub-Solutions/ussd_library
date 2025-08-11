@@ -21,40 +21,59 @@ class ArrayDataProvider implements DataProviderInterface
         $data = $this->data;
 
         foreach ($filters as $field => $value) {
-            $data = array_filter($data, function ($item) use ($field, $value) {
-                return isset($item[$field]) && $item[$field] == $value;
+            if ($field === 'page' || $field === 'per_page') {
+                continue;
+            }
+            $data = array_filter($data, function ($item) use ($field, $value): bool {
+                return is_array($item) && array_key_exists($field, $item) && $item[$field] == $value;
             });
         }
 
-        return $data;
+        $data = array_values($data);
+
+        $page = max(1, (int) ($filters['page'] ?? 1));
+        $perPage = max(1, (int) ($filters['per_page'] ?? 20));
+        $total = count($data);
+        $offset = ($page - 1) * $perPage;
+        $slice = array_slice($data, $offset, $perPage);
+        $hasMore = ($offset + count($slice)) < $total;
+
+        return [
+            'data' => $slice,
+            'total' => $total,
+            'current_page' => $page,
+            'per_page' => $perPage,
+            'has_more' => $hasMore,
+        ];
     }
 
     public function getItem(string|int $id, UssdSession $session): mixed
     {
-        return array_find($this->data,
-            fn ($item) => (is_array($item) && isset($item['id']) && $item['id'] == $id) || $item == $id);
-
+        return array_find(
+            $this->data,
+            fn ($item, $_): bool => (is_array($item) && isset($item['id']) && $item['id'] == $id) || $item == $id
+        );
     }
 
     public function search(string $query, UssdSession $session, array $fields = ['name', 'title']): array
     {
-        $query = strtolower(trim($query));
+        $q = strtolower(trim($query));
 
-        $filteredData = array_filter($this->data, function ($item) use ($query, $fields) {
+        $filteredData = array_filter($this->data, function ($item) use ($q, $fields): bool {
             if (is_array($item)) {
-                if (array_any($fields,
-                    fn ($field) => isset($item[$field]) && str_contains(strtolower($item[$field]), $query))) {
-                    return true;
-                }
-            } else {
-                return str_contains(strtolower($item), $query);
+                return array_any(
+                    $fields,
+                    fn ($field, $_): bool => isset($item[$field]) && is_scalar($item[$field]) && str_contains(strtolower((string) $item[$field]), $q)
+                );
             }
 
-            return false;
+            return is_scalar($item) && str_contains(strtolower((string) $item), $q);
         });
 
+        $filteredData = array_values($filteredData);
+
         return [
-            'data' => array_values($filteredData),
+            'data' => $filteredData,
             'total' => count($filteredData),
         ];
     }
