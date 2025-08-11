@@ -8,16 +8,9 @@ use Illuminate\Support\ServiceProvider;
 
 class UssdServiceProvider extends ServiceProvider
 {
-    public function register(): void
-    {
-        $this->mergeConfigFrom(__DIR__.'/Config/ussd.php', 'ussd');
-    }
-
     public function boot(): void
     {
-        if (method_exists($this, 'loadMigrationsFrom')) {
-            $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
-        }
+        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
 
         if (function_exists('config_path')) {
             $this->publishes([
@@ -30,5 +23,10 @@ class UssdServiceProvider extends ServiceProvider
                 __DIR__.'/../database/migrations/create_ussd_tables.php' => database_path('migrations/create_ussd_tables.php'),
             ], 'migrations');
         }
+    }
+
+    public function register(): void
+    {
+        $this->mergeConfigFrom(__DIR__.'/Config/ussd.php', 'ussd');
     }
 }
