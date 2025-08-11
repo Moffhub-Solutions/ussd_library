@@ -41,5 +41,8 @@ jobs:
       - name: Lint code
         run: composer lint
 
+      - name: PHPStan
+        run: composer phpstan
+
       - name: Execute tests
         run: composer test
