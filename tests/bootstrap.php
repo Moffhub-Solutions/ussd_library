@@ -6,6 +6,7 @@ use Illuminate\Cache\ArrayStore;
 use Illuminate\Cache\Repository as CacheRepository;
 use Illuminate\Config\Repository as ConfigRepository;
 use Illuminate\Container\Container;
+use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Cache as CacheFacade;
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\Log as LogFacade;
@@ -14,6 +15,7 @@ use Psr\Log\NullLogger;
 
 require __DIR__.'/../vendor/autoload.php';
 
+/** @var Application $app */
 $app = new Container;
 Facade::setFacadeApplication($app);
 
