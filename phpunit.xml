@@ -1,14 +1,37 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit
-    bootstrap="./tests/bootstrap.php"
+    bootstrap="vendor/autoload.php"
     colors="true"
+    cacheDirectory=".phpunit.cache"
+    executionOrder="depends,defects"
+    beStrictAboutOutputDuringTests="true"
+    failOnRisky="true"
+    failOnWarning="true"
 >
     <php>
         <ini name="memory_limit" value="-1"/>
+        <env name="APP_ENV" value="testing"/>
+        <env name="CACHE_DRIVER" value="array"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="DB_CONNECTION" value="sqlite"/>
+        <env name="DB_DATABASE" value=":memory:"/>
     </php>
     <testsuites>
         <testsuite name="Unit">
             <directory suffix="Test.php">./tests/Unit</directory>
         </testsuite>
+        <testsuite name="Feature">
+            <directory suffix="Test.php">./tests/Feature</directory>
+        </testsuite>
     </testsuites>
+    <source>
+        <include>
+            <directory suffix=".php">./src</directory>
+        </include>
+        <exclude>
+            <directory suffix=".php">./src/Config</directory>
+            <directory suffix=".php">./src/Models</directory>
+        </exclude>
+    </source>
 </phpunit>

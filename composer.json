@@ -21,7 +21,7 @@
     ],
     "minimum-stability": "stable",
     "require": {
-        "php": "^8.4",
+        "php": "^8.5",
         "laravel/framework": "^12.0",
         "sourcetoad/enhanced-resources": "^7.1",
         "sourcetoad/rule-helper-for-laravel": "^6.0"
@@ -30,11 +30,13 @@
         "phpunit/phpunit": "^11.0",
         "laravel/pint": "^1.19",
         "orchestra/testbench": "^v10.4.0",
-        "larastan/larastan": "^3.6"
+        "larastan/larastan": "^3.6",
+        "rector/rector": "^2.0"
     },
     "scripts": {
         "check-code": [
             "@lint",
+            "@rector:check",
             "@phpstan",
             "@test"
         ],
@@ -46,6 +48,12 @@
         ],
         "phpstan": [
             "vendor/bin/phpstan --memory-limit=1G"
+        ],
+        "rector": [
+            "vendor/bin/rector process"
+        ],
+        "rector:check": [
+            "vendor/bin/rector process --dry-run"
         ],
         "test": [
             "vendor/bin/phpunit"

@@ -12,16 +12,18 @@ class UssdServiceProvider extends ServiceProvider
     {
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
 
-        if (function_exists('config_path')) {
-            $this->publishes([
-                __DIR__.'/Config/ussd.php' => config_path('ussd.php'),
-            ], 'config');
-        }
+        if ($this->app->runningInConsole() && ! $this->app->environment('testing')) {
+            if (function_exists('config_path')) {
+                $this->publishes([
+                    __DIR__.'/Config/ussd.php' => config_path('ussd.php'),
+                ], 'config');
+            }
 
-        if (function_exists('database_path')) {
-            $this->publishes([
-                __DIR__.'/../database/migrations/create_ussd_tables.php' => database_path('migrations/create_ussd_tables.php'),
-            ], 'migrations');
+            if (function_exists('database_path')) {
+                $this->publishes([
+                    __DIR__.'/../database/migrations/create_ussd_tables.php' => database_path('migrations/create_ussd_tables.php'),
+                ], 'migrations');
+            }
         }
     }
 

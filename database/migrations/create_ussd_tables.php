@@ -206,10 +206,31 @@ return new class extends Migration
             $table->index(['phone_number', 'created_at']);
             $table->index('recovery_type');
         });
+
+        // Create access lists table (whitelist/blacklist)
+        Schema::create('ussd_access_lists', function (Blueprint $table) {
+            $table->id();
+            $table->string('phone_number')->index();
+            $table->enum('type', ['whitelist', 'blacklist'])->index();
+            $table->string('reason')->nullable();
+            $table->string('added_by')->nullable();
+            $table->timestamp('expires_at')->nullable()->index();
+            $table->boolean('is_active')->default(true)->index();
+            $table->json('metadata')->nullable();
+            $table->timestamps();
+
+            // Unique constraint for phone + type
+            $table->unique(['phone_number', 'type']);
+
+            // Indexes for efficient lookups
+            $table->index(['type', 'is_active', 'expires_at']);
+            $table->index(['phone_number', 'type', 'is_active']);
+        });
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('ussd_access_lists');
         Schema::dropIfExists('ussd_business_metrics');
         Schema::dropIfExists('ussd_menu_statistics');
         Schema::dropIfExists('ussd_security_events');

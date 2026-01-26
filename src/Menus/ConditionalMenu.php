@@ -57,10 +57,10 @@ class ConditionalMenu extends UssdMenu
 
             if (is_callable($condition)) {
                 if ($condition($session, $this->framework)) {
-                    return $item['menu'];
+                    return $item['action'];
                 }
             } elseif (is_bool($condition) && $condition) {
-                return $item['menu'];
+                return $item['action'];
             }
         }
 

@@ -71,6 +71,16 @@ class MenuBuilder
 
     public function build(): SimpleMenu
     {
-        return new SimpleMenu($this->title, $this->options, $this->actions);
+        $menu = new SimpleMenu($this->title, $this->options, $this->actions);
+
+        if ($this->onComplete) {
+            $menu->setOnComplete($this->onComplete);
+        }
+
+        if (! empty($this->config)) {
+            $menu->setConfig($this->config);
+        }
+
+        return $menu;
     }
 }

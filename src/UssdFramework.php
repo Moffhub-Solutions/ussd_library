@@ -2,18 +2,43 @@
 
 namespace Moffhub\Ussd;
 
-use App\Libraries\Ussd\Security\UssdRateLimiter;
+use Moffhub\Ussd\Security\UssdRateLimiter;
+use BackedEnum;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Moffhub\Ussd\Analytics\UssdAnalytics;
 use Moffhub\Ussd\Cache\UssdCacheManager;
+use Moffhub\Ussd\Interfaces\MenuNameInterface;
 use Moffhub\Ussd\Interfaces\UssdMenuInterface;
+use Moffhub\Ussd\Interfaces\UssdProviderInterface;
+use Moffhub\Ussd\Providers\ProviderFactory;
 use Moffhub\Ussd\Security\UssdAuditLogger;
 use Moffhub\Ussd\Security\UssdInputSanitizer;
 use Moffhub\Ussd\Services\UssdDatabaseService;
 
+/**
+ * USSD Framework - Main Orchestrator.
+ *
+ * The central class that coordinates all USSD application functionality:
+ * - Request handling and response generation
+ * - Menu registration and navigation
+ * - Session management with recovery
+ * - Provider detection and normalization
+ * - Security (rate limiting, input sanitization, audit logging)
+ * - Analytics and performance tracking
+ * - Hook system for extensibility
+ *
+ * Basic Usage:
+ * ```php
+ * $framework = new UssdFramework(['default_menu' => 'main']);
+ * $framework->registerMenu('main', new SimpleMenu('Welcome', [...]));
+ * $response = $framework->handle($request);
+ * ```
+ *
+ * @package Moffhub\Ussd
+ */
 class UssdFramework
 {
     protected ?UssdAnalytics $analytics = null;
@@ -52,13 +77,15 @@ class UssdFramework
 
     protected float $startTime;
 
+    protected ?UssdProviderInterface $provider = null;
+
     public function __construct(
         array $config = [],
     ) {
         $this->startTime = microtime(true);
         $this->config = $this->mergeDefaultConfig($config);
         $this->initializeComponents();
-        $this->registerDEfaultSessionHandlers();
+        $this->registerDefaultSessionHandlers();
     }
 
     protected function mergeDefaultConfig(array $config): array
@@ -102,6 +129,14 @@ class UssdFramework
                 'save_recovery_logs' => true,
                 'save_performance_metrics' => true,
                 'anonymize_phone_numbers' => true,
+            ],
+
+            // Provider configuration
+            'provider' => [
+                'default' => 'generic',
+                'auto_detect' => true,
+                'country_code' => '254',
+                'max_message_length' => 182,
             ],
         ], $config);
     }
@@ -286,8 +321,13 @@ class UssdFramework
     public function handle(Request $request): UssdResponse
     {
         $this->request = $request;
-        $phoneNumber = $request->input('phoneNumber');
-        $userInput = $request->input('text', '');
+
+        // Auto-detect or use configured provider
+        $this->provider = $this->getProvider($request);
+
+        // Extract normalized data from provider
+        $phoneNumber = $this->provider->getPhoneNumber($request);
+        $userInput = $this->provider->getUserInput($request);
         $requestStartTime = microtime(true);
         try {
 
@@ -382,7 +422,55 @@ class UssdFramework
 
     protected function extractPhoneNumber(Request $request): string
     {
+        if ($this->provider) {
+            return $this->provider->getPhoneNumber($request);
+        }
+
         return $request->phoneNumber ?? $request->input('phoneNumber') ?? $request->input('msisdn') ?? '';
+    }
+
+    /**
+     * Get the USSD provider for the request.
+     */
+    protected function getProvider(Request $request): UssdProviderInterface
+    {
+        if ($this->provider) {
+            return $this->provider;
+        }
+
+        return ProviderFactory::detect($request, $this->config['provider'] ?? []);
+    }
+
+    /**
+     * Set a specific provider to use.
+     */
+    public function setProvider(UssdProviderInterface $provider): self
+    {
+        $this->provider = $provider;
+
+        return $this;
+    }
+
+    /**
+     * Get the current provider.
+     */
+    public function getCurrentProvider(): ?UssdProviderInterface
+    {
+        return $this->provider;
+    }
+
+    /**
+     * Format the response using the provider.
+     */
+    public function formatProviderResponse(UssdResponse $response): string
+    {
+        if ($this->provider) {
+            return $this->provider->formatResponse($response);
+        }
+
+        $prefix = $response->shouldContinue() ? 'CON ' : 'END ';
+
+        return $prefix.$response->getMessage();
     }
 
     protected function generateSessionId(): string
@@ -539,13 +627,50 @@ class UssdFramework
         return $this->getMenu($menuName);
     }
 
-    public function getMenu(string $name): UssdMenuInterface
+    /**
+     * Get a registered menu by name.
+     *
+     * @param string|MenuNameInterface|BackedEnum $name Menu name or enum
+     * @return UssdMenuInterface
+     * @throws Exception If menu is not found
+     */
+    public function getMenu(string|MenuNameInterface|BackedEnum $name): UssdMenuInterface
     {
-        if (! isset($this->menus[$name])) {
-            throw new Exception("Menu '{$name}' not found");
+        $menuKey = $this->resolveMenuName($name);
+
+        if (! isset($this->menus[$menuKey])) {
+            throw new Exception("Menu '{$menuKey}' not found");
         }
 
-        return $this->menus[$name];
+        return $this->menus[$menuKey];
+    }
+
+    /**
+     * Check if a menu is registered.
+     *
+     * @param string|MenuNameInterface|BackedEnum $name Menu name or enum
+     */
+    public function hasMenu(string|MenuNameInterface|BackedEnum $name): bool
+    {
+        return isset($this->menus[$this->resolveMenuName($name)]);
+    }
+
+    /**
+     * Resolve menu name from string or enum.
+     *
+     * @param string|MenuNameInterface|BackedEnum $name Menu name or enum
+     */
+    protected function resolveMenuName(string|MenuNameInterface|BackedEnum $name): string
+    {
+        if ($name instanceof MenuNameInterface) {
+            return $name->value();
+        }
+
+        if ($name instanceof BackedEnum) {
+            return (string) $name->value;
+        }
+
+        return $name;
     }
 
     protected function buildContinuationMenu(string $message): UssdResponse
@@ -663,18 +788,38 @@ class UssdFramework
         return $this->navigateToDefaultMenu();
     }
 
-    public function navigateToMenu(string $menuName, array $data = []): void
+    /**
+     * Navigate to a menu.
+     *
+     * @param string|MenuNameInterface|BackedEnum $menuName Menu name or enum
+     * @param array<string, mixed> $data Data to pass to the menu
+     */
+    public function navigateToMenu(string|MenuNameInterface|BackedEnum $menuName, array $data = []): void
     {
+        $resolvedName = $this->resolveMenuName($menuName);
         $previousMenu = $this->session->getCurrentMenu();
-        $this->session->setCurrentMenu($menuName);
+        $this->session->setCurrentMenu($resolvedName);
         $this->session->setMenuData($data);
 
         $this->analytics?->trackUserJourney(
             $this->request->input('phoneNumber'),
             $previousMenu,
-            $menuName,
+            $resolvedName,
             'navigate'
         );
+    }
+
+    /**
+     * Navigate to a menu and return its display response.
+     *
+     * @param string|MenuNameInterface|BackedEnum $menuName Menu name or enum
+     * @param array<string, mixed> $data Data to pass to the menu
+     */
+    public function navigateToMenuWithResponse(string|MenuNameInterface|BackedEnum $menuName, array $data = []): UssdResponse
+    {
+        $this->navigateToMenu($menuName, $data);
+
+        return $this->getMenu($menuName)->process('', $this->session);
     }
 
     protected function navigateToDefaultMenu(): UssdResponse
@@ -882,9 +1027,16 @@ class UssdFramework
         return $this;
     }
 
-    public function registerMenu(string $name, UssdMenuInterface $menu): static
+    /**
+     * Register a menu with the framework.
+     *
+     * @param string|MenuNameInterface|BackedEnum $name Menu name or enum
+     * @param UssdMenuInterface $menu The menu instance
+     */
+    public function registerMenu(string|MenuNameInterface|BackedEnum $name, UssdMenuInterface $menu): static
     {
-        $this->menus[$name] = $menu;
+        $resolvedName = $this->resolveMenuName($name);
+        $this->menus[$resolvedName] = $menu;
         $menu->setFramework($this);
 
         if (method_exists($menu, 'setCacheManager') && $this->cacheManager) {

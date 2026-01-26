@@ -9,6 +9,26 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * USSD Session Manager.
+ *
+ * Manages the lifecycle of a USSD session including:
+ * - Session data storage and retrieval
+ * - Menu navigation history
+ * - Form data collection
+ * - Session recovery and grace periods
+ * - Context preservation across sessions
+ * - Performance metrics tracking
+ *
+ * Session States:
+ * - new: Initial session creation
+ * - active: Normal operation (within timeout)
+ * - grace_period: Timed out but recoverable
+ * - recovered: Restored from expired session
+ * - expired: Lost, new session created
+ *
+ * @package Moffhub\Ussd
+ */
 class UssdSession
 {
     protected string $sessionId;
@@ -29,11 +49,27 @@ class UssdSession
 
     protected array $sessionMetrics = [];
 
-    public function __construct(Request $request, array $config = [])
+    /**
+     * Create a new USSD session.
+     *
+     * @param Request|string $phoneNumberOrRequest Phone number or HTTP request
+     * @param array|string $configOrSessionId Configuration array or session ID (when first param is string)
+     * @param array $config Configuration array (only used when first param is string)
+     */
+    public function __construct(Request|string $phoneNumberOrRequest, array|string $configOrSessionId = [], array $config = [])
     {
-        $this->sessionId = $request->sessionId ?? uniqid('ussd_', true);
-        $this->phoneNumber = $request->phoneNumber ?? $request->input('phoneNumber') ?? '';
-        $this->config = $config;
+        if ($phoneNumberOrRequest instanceof Request) {
+            // Legacy: new UssdSession($request, $config)
+            $this->sessionId = $phoneNumberOrRequest->sessionId ?? uniqid('ussd_', true);
+            $this->phoneNumber = $phoneNumberOrRequest->phoneNumber ?? $phoneNumberOrRequest->input('phoneNumber') ?? '';
+            $this->config = is_array($configOrSessionId) ? $configOrSessionId : [];
+        } else {
+            // New: new UssdSession($phoneNumber, $sessionId, $config)
+            $this->phoneNumber = $phoneNumberOrRequest;
+            $this->sessionId = is_string($configOrSessionId) ? $configOrSessionId : uniqid('ussd_', true);
+            $this->config = $config;
+        }
+
         $this->cacheKey = ($this->config['session_prefix'] ?? 'ussd_session_').$this->phoneNumber;
         $this->lastAccessTime = Carbon::now();
 

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Libraries\Ussd\Helpers;
+namespace Moffhub\Ussd\Helpers;
 
 use Closure;
 use DateTime;

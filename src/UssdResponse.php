@@ -2,20 +2,49 @@
 
 namespace Moffhub\Ussd;
 
+/**
+ * USSD Response Builder.
+ *
+ * Provides a fluent interface for building USSD responses with support for:
+ * - Continue (CON) and End (END) response types
+ * - Menu, form, pagination, and progress displays
+ * - Error handling and validation messages
+ * - Message sanitization and truncation
+ * - Metadata attachment for debugging
+ *
+ * Response Format:
+ * - CON <message>: Continue session, wait for user input
+ * - END <message>: Terminate session
+ *
+ * @package Moffhub\Ussd
+ */
 class UssdResponse
 {
+    /** @var string Response type to continue session */
     public const string CONTINUE = 'CON';
 
+    /** @var string Response type to end session */
     public const string END = 'END';
 
+    /** @var array<string, mixed>|null Debug information */
     protected ?array $debugInfo = null;
 
+    /** @var string The response message content */
     protected string $message;
 
+    /** @var array<string, mixed> Response metadata */
     protected array $metadata = [];
 
+    /** @var string Response type (CON or END) */
     protected string $type;
 
+    /**
+     * Create a new USSD response.
+     *
+     * @param string $message The response message
+     * @param string $type Response type (CONTINUE or END)
+     * @param array<string, mixed> $metadata Additional metadata
+     */
     public function __construct(string $message, string $type = self::CONTINUE, array $metadata = [])
     {
         $this->message = $this->sanitizeMessage($message);

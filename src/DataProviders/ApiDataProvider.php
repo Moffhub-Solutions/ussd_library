@@ -24,19 +24,50 @@ class ApiDataProvider implements DataProviderInterface
 
     public function getData(UssdSession $session, array $filters = []): array
     {
+        $page = $session->get('page', 1);
+        $perPage = $filters['per_page'] ?? 10;
+
         $url = $this->baseUrl.'/data';
-        if (! empty($filters)) {
-            $url .= '?'.http_build_query($filters);
+        $queryParams = array_merge($filters, ['page' => $page, 'per_page' => $perPage]);
+        $url .= '?'.http_build_query($queryParams);
+
+        $response = $this->makeRequest($url);
+
+        // If API returns paginated data structure, use it
+        if (isset($response['data']) && isset($response['total'])) {
+            return [
+                'data' => $response['data'],
+                'total' => $response['total'],
+                'current_page' => $response['current_page'] ?? $page,
+                'per_page' => $response['per_page'] ?? $perPage,
+                'has_more' => $response['has_more'] ?? (($page * $perPage) < ($response['total'] ?? 0)),
+            ];
         }
 
-        return $this->makeRequest($url);
+        // If API returns raw array, wrap it
+        $data = is_array($response) ? $response : [];
+
+        return [
+            'data' => $data,
+            'total' => count($data),
+            'current_page' => $page,
+            'per_page' => $perPage,
+            'has_more' => false,
+        ];
     }
 
     public function getItem(string|int $id, UssdSession $session): mixed
     {
         $url = $this->baseUrl.'/data/'.$id;
+        $response = $this->makeRequest($url);
 
-        return $this->makeRequest($url);
+        // Return null if empty or error, otherwise return the item
+        if (empty($response)) {
+            return null;
+        }
+
+        // If API wraps item in 'data' key, unwrap it
+        return $response['data'] ?? $response;
     }
 
     public function search(string $query, UssdSession $session, array $fields = []): array
@@ -45,7 +76,23 @@ class ApiDataProvider implements DataProviderInterface
         $params = ['q' => $query, 'fields' => implode(',', $fields)];
         $url .= '?'.http_build_query($params);
 
-        return $this->makeRequest($url);
+        $response = $this->makeRequest($url);
+
+        // If API returns structured data, use it
+        if (isset($response['data'])) {
+            return [
+                'data' => $response['data'],
+                'total' => $response['total'] ?? count($response['data']),
+            ];
+        }
+
+        // If API returns raw array, wrap it
+        $data = is_array($response) ? $response : [];
+
+        return [
+            'data' => $data,
+            'total' => count($data),
+        ];
     }
 
     protected function makeRequest(string $url): mixed

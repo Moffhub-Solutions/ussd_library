@@ -27,7 +27,19 @@ class DatabaseDataProvider implements DataProviderInterface
             $query->where($field, $value);
         }
 
-        return $query->get()->toArray();
+        $page = $session->get('page', 1);
+        $perPage = $filters['per_page'] ?? 10;
+
+        $total = (clone $query)->count();
+        $data = $query->skip(($page - 1) * $perPage)->take($perPage)->get()->toArray();
+
+        return [
+            'data' => $data,
+            'total' => $total,
+            'current_page' => $page,
+            'per_page' => $perPage,
+            'has_more' => ($page * $perPage) < $total,
+        ];
     }
 
     public function getItem(string|int $id, UssdSession $session): mixed
@@ -45,7 +57,12 @@ class DatabaseDataProvider implements DataProviderInterface
             }
         });
 
-        return $builder->get()->toArray();
+        $data = $builder->get()->toArray();
+
+        return [
+            'data' => $data,
+            'total' => count($data),
+        ];
     }
 
     protected function getBaseQuery(): mixed
