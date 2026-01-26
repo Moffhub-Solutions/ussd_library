@@ -278,7 +278,8 @@ class UssdInputSanitizer
             return;
         }
 
-        Log::channel('security')->warning('Suspicious USSD input detected', [
+        $channel = config('ussd.logging.channel') ?? config('logging.default', 'stack');
+        Log::channel($channel)->warning('Suspicious USSD input detected', [
             'input' => $input,
             'context' => $context,
             'reasons' => $reasons,

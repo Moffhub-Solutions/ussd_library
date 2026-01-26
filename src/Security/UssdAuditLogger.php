@@ -21,6 +21,8 @@ class UssdAuditLogger
 
     public function __construct(array $config = [])
     {
+        $defaultChannel = config('ussd.logging.channel') ?? config('logging.default', 'stack');
+
         $this->config = array_merge([
             'enabled' => true,
             'log_level' => 'info',
@@ -32,7 +34,7 @@ class UssdAuditLogger
             'log_failed_actions' => true,
             'log_security_events' => true,
             'log_performance_metrics' => false,
-            'channels' => ['audit', 'default'],
+            'channels' => [$defaultChannel],
         ], $config);
 
         $this->context = [

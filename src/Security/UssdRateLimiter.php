@@ -366,7 +366,8 @@ class UssdRateLimiter
 
     protected function logSecurity(string $event, string $phoneNumber, string $action, array $additional = []): void
     {
-        Log::channel('security')->warning("USSD Security Event: $event", array_merge([
+        $channel = config('ussd.logging.channel') ?? config('logging.default', 'stack');
+        Log::channel($channel)->warning("USSD Security Event: $event", array_merge([
             'phone' => $phoneNumber,
             'action' => $action,
             'timestamp' => now()->toDateTimeString(),
