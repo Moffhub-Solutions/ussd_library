@@ -24,6 +24,14 @@ use Illuminate\Database\Eloquent\Model;
  * @property array|null $metadata
  * @property Carbon $created_at
  * @property Carbon $updated_at
+ *
+ * @method static \Illuminate\Database\Eloquent\Builder<static> query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static> where(string|\Closure $column, mixed $operator = null, mixed $value = null, string $boolean = 'and')
+ * @method static \Illuminate\Database\Eloquent\Builder<static> whitelist()
+ * @method static \Illuminate\Database\Eloquent\Builder<static> blacklist()
+ * @method static \Illuminate\Database\Eloquent\Builder<static> active()
+ * @method static \Illuminate\Database\Eloquent\Builder<static> forPhone(string $phoneNumber)
+ * @method static static updateOrCreate(array $attributes, array $values = [])
  */
 class UssdAccessList extends Model
 {
@@ -47,6 +55,9 @@ class UssdAccessList extends Model
 
     /**
      * Scope to get whitelist entries.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<static>
      */
     public function scopeWhitelist(Builder $query): Builder
     {
@@ -55,6 +66,9 @@ class UssdAccessList extends Model
 
     /**
      * Scope to get blacklist entries.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<static>
      */
     public function scopeBlacklist(Builder $query): Builder
     {
@@ -63,6 +77,9 @@ class UssdAccessList extends Model
 
     /**
      * Scope to get only active entries.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<static>
      */
     public function scopeActive(Builder $query): Builder
     {
@@ -75,6 +92,9 @@ class UssdAccessList extends Model
 
     /**
      * Scope to find by phone number.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<static>
      */
     public function scopeForPhone(Builder $query, string $phoneNumber): Builder
     {
@@ -166,9 +186,13 @@ class UssdAccessList extends Model
      */
     public static function isWhitelisted(string $phoneNumber): bool
     {
-        return static::whitelist()
-            ->active()
-            ->forPhone($phoneNumber)
+        return static::where('type', 'whitelist')
+            ->where('is_active', true)
+            ->where(function ($q): void {
+                $q->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            })
+            ->where('phone_number', $phoneNumber)
             ->exists();
     }
 
@@ -177,9 +201,13 @@ class UssdAccessList extends Model
      */
     public static function isBlacklisted(string $phoneNumber): bool
     {
-        return static::blacklist()
-            ->active()
-            ->forPhone($phoneNumber)
+        return static::where('type', 'blacklist')
+            ->where('is_active', true)
+            ->where(function ($q): void {
+                $q->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            })
+            ->where('phone_number', $phoneNumber)
             ->exists();
     }
 
@@ -190,8 +218,12 @@ class UssdAccessList extends Model
      */
     public static function getWhitelistedNumbers(): array
     {
-        return static::whitelist()
-            ->active()
+        return static::where('type', 'whitelist')
+            ->where('is_active', true)
+            ->where(function ($q): void {
+                $q->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            })
             ->pluck('phone_number')
             ->toArray();
     }
@@ -203,8 +235,12 @@ class UssdAccessList extends Model
      */
     public static function getBlacklistedNumbers(): array
     {
-        return static::blacklist()
-            ->active()
+        return static::where('type', 'blacklist')
+            ->where('is_active', true)
+            ->where(function ($q): void {
+                $q->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            })
             ->pluck('phone_number')
             ->toArray();
     }

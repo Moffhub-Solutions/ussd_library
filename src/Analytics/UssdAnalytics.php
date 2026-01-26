@@ -606,8 +606,8 @@ class UssdAnalytics
         }
 
         $index = ($percentile / 100) * (count($values) - 1);
-        $lower = floor($index);
-        $upper = ceil($index);
+        $lower = (int) floor($index);
+        $upper = (int) ceil($index);
 
         if ($lower === $upper) {
             return $values[$lower];
@@ -616,21 +616,31 @@ class UssdAnalytics
         return $values[$lower] + ($values[$upper] - $values[$lower]) * ($index - $lower);
     }
 
+    /**
+     * @param  \Illuminate\Database\Query\Builder|\Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>  $query
+     * @return array<string, mixed>
+     */
     protected function generateSummaryStats(mixed $query): array
     {
+        /** @var \Illuminate\Database\Query\Builder $clonedQuery */
         $clonedQuery = clone $query;
 
         return [
             'total_events' => $clonedQuery->count(),
-            'unique_users' => $clonedQuery->whereNotNull('phone_number')->distinct('phone_number')->count(),
-            'total_sessions' => $clonedQuery->where('event_type', 'session')->count(),
+            'unique_users' => (clone $clonedQuery)->whereNotNull('phone_number')->distinct('phone_number')->count(),
+            'total_sessions' => (clone $clonedQuery)->where('event_type', 'session')->count(),
             'avg_session_duration' => $this->calculateAverageSessionDuration($query),
             'completion_rate' => $this->calculateCompletionRate($query),
         ];
     }
 
+    /**
+     * @param  \Illuminate\Database\Query\Builder|\Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>  $query
+     * @return array<string, mixed>
+     */
     protected function analyzeUserBehavior(mixed $query): array
     {
+        /** @var \Illuminate\Database\Query\Builder $clonedQuery */
         $clonedQuery = clone $query;
 
         return [
@@ -647,8 +657,13 @@ class UssdAnalytics
         ];
     }
 
+    /**
+     * @param  \Illuminate\Database\Query\Builder|\Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>  $query
+     * @return array<string, mixed>
+     */
     protected function analyzePerformance(mixed $query): array
     {
+        /** @var \Illuminate\Database\Query\Builder $clonedQuery */
         $clonedQuery = clone $query;
 
         $performanceData = $clonedQuery->where('event_type', 'performance')
@@ -684,13 +699,18 @@ class UssdAnalytics
         return $actionStats;
     }
 
+    /**
+     * @param  \Illuminate\Database\Query\Builder|\Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>  $query
+     * @return array<string, mixed>
+     */
     protected function analyzeErrors(mixed $query): array
     {
+        /** @var \Illuminate\Database\Query\Builder $clonedQuery */
         $clonedQuery = clone $query;
 
         return [
-            'total_errors' => $clonedQuery->where('event_type', 'error')->count(),
-            'error_types' => $clonedQuery->where('event_type', 'error')
+            'total_errors' => (clone $clonedQuery)->where('event_type', 'error')->count(),
+            'error_types' => (clone $clonedQuery)->where('event_type', 'error')
                 ->select(DB::raw('JSON_EXTRACT(data, "$.error_type") as error_type'), DB::raw('count(*) as count'))
                 ->groupBy('error_type')
                 ->orderBy('count', 'desc')

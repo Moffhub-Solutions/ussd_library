@@ -92,6 +92,7 @@ trait MenuEnumTrait
 
     /**
      * Get menu as array for select options.
+     * Requires the enum using this trait to implement a label(): string method.
      *
      * @return array<string, string>
      */
@@ -99,7 +100,8 @@ trait MenuEnumTrait
     {
         $options = [];
         foreach (self::cases() as $case) {
-            $label = method_exists($case, 'label') ? $case->label() : $case->name;
+            // @phpstan-ignore-next-line - label() is expected to be implemented by the enum using this trait
+            $label = $case->label();
             $options[$case->value] = $label;
         }
 

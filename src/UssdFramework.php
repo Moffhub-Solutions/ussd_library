@@ -466,7 +466,7 @@ class UssdFramework
             return $this->provider->formatResponse($response);
         }
 
-        $prefix = $response->shouldContinue() ? 'CON ' : 'END ';
+        $prefix = $response->isContinue() ? 'CON ' : 'END ';
 
         return $prefix.$response->getMessage();
     }

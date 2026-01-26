@@ -48,7 +48,6 @@ class DatabaseDataProviderTest extends TestCase
         // Should apply filters without errors
         $result = $provider->getData($this->session, ['status' => 'active']);
 
-        $this->assertIsArray($result);
         $this->assertArrayHasKey('data', $result);
     }
 
@@ -86,13 +85,14 @@ class DatabaseDataProviderTest extends TestCase
 
     public function test_custom_query_callback(): void
     {
-        $customQuery = (fn () => TestModel::query()->where('status', 'active'));
+        $customQuery = static fn (): \Illuminate\Database\Eloquent\Builder => TestModel::query()->where('status', 'active');
 
+        // @phpstan-ignore-next-line - Template covariance issue with TestModel vs Model generic
         $provider = new DatabaseDataProvider(TestModel::class, $customQuery);
 
         // Should not throw errors
         $result = $provider->getData($this->session);
-        $this->assertIsArray($result);
+        $this->assertArrayHasKey('data', $result);
     }
 }
 

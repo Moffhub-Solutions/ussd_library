@@ -232,8 +232,6 @@ trait GlobalNavigationTrait
             return '';
         }
 
-        $this->config['global_navigation']['separator'] ?? ' | ';
-
         return implode("\n", $navOptions);
     }
 }

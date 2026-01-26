@@ -4,12 +4,28 @@ declare(strict_types=1);
 
 namespace Moffhub\Ussd\DataProviders;
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Moffhub\Ussd\Interfaces\DataProviderInterface;
 use Moffhub\Ussd\UssdSession;
 
 class DatabaseDataProvider implements DataProviderInterface
 {
-    public function __construct(protected mixed $model, protected mixed $query = null) {}
+    /** @var class-string<Model> */
+    protected string $model;
+
+    /** @var (callable(): Builder<Model>)|null */
+    protected mixed $query;
+
+    /**
+     * @param  class-string<Model>  $model
+     * @param  (callable(): Builder<Model>)|null  $query
+     */
+    public function __construct(string $model, ?callable $query = null)
+    {
+        $this->model = $model;
+        $this->query = $query;
+    }
 
     public function getData(UssdSession $session, array $filters = []): array
     {
@@ -57,9 +73,12 @@ class DatabaseDataProvider implements DataProviderInterface
         ];
     }
 
-    protected function getBaseQuery(): mixed
+    /**
+     * @return Builder<Model>
+     */
+    protected function getBaseQuery(): Builder
     {
-        if ($this->query && is_callable($this->query)) {
+        if ($this->query !== null) {
             return call_user_func($this->query);
         }
 

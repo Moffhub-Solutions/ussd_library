@@ -70,7 +70,8 @@ class ProviderFactory
         }
 
         // Check User-Agent header
-        $userAgent = strtolower($request->header('User-Agent', ''));
+        $header = $request->header('User-Agent', '');
+        $userAgent = strtolower(is_array($header) ? ($header[0] ?? '') : ($header ?? ''));
 
         if (str_contains($userAgent, 'africa') || str_contains($userAgent, 'safaricom')) {
             return self::create('safaricom', $config);
