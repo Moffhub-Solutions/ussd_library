@@ -35,7 +35,7 @@ class UssdFlowTest extends TestCase
 
     private function setupMenus(): void
     {
-        // Main menu
+        // Main menu - callbacks use signature ($input, $session, $framework)
         $mainMenu = new SimpleMenu('Welcome to USSD App', [
             '1' => 'Check Balance',
             '2' => 'Send Money',
@@ -46,30 +46,30 @@ class UssdFlowTest extends TestCase
             '3' => fn ($input, $session, $framework) => $framework->navigateToMenuWithResponse('airtime'),
         ]);
 
-        // Balance menu
+        // Balance menu - use '9' for back since '0' is reserved for home navigation
         $balanceMenu = new SimpleMenu('Your balance is KES 1,500.00', [
-            '0' => 'Back to Main Menu',
+            '9' => 'Back to Main Menu',
         ], [
-            '0' => fn ($input, $session, $framework) => $framework->navigateToMenuWithResponse('main'),
+            '9' => fn ($input, $session, $framework) => $framework->navigateToMenuWithResponse('main'),
         ]);
 
         // Send money menu
         $sendMoneyMenu = new SimpleMenu('Send Money', [
             '1' => 'To Mobile',
             '2' => 'To Bank',
-            '0' => 'Back',
+            '9' => 'Back',
         ], [
-            '0' => fn ($input, $session, $framework) => $framework->navigateToMenuWithResponse('main'),
+            '9' => fn ($input, $session, $framework) => $framework->navigateToMenuWithResponse('main'),
         ]);
 
         // Airtime menu
         $airtimeMenu = new SimpleMenu('Buy Airtime', [
             '1' => 'For Self',
             '2' => 'For Others',
-            '0' => 'Back',
+            '9' => 'Back',
         ], [
             '1' => fn ($input, $session, $framework) => UssdResponse::end('Airtime purchase successful. KES 100 added to your account.'),
-            '0' => fn ($input, $session, $framework) => $framework->navigateToMenuWithResponse('main'),
+            '9' => fn ($input, $session, $framework) => $framework->navigateToMenuWithResponse('main'),
         ]);
 
         $this->framework->registerMenu('main', $mainMenu);
@@ -148,8 +148,8 @@ class UssdFlowTest extends TestCase
         $this->framework->handle($this->createUssdRequest('', $phoneNumber, $sessionId));
         $this->framework->handle($this->createUssdRequest('1', $phoneNumber, $sessionId));
 
-        // Go back
-        $response = $this->framework->handle($this->createUssdRequest('0', $phoneNumber, $sessionId));
+        // Go back (using '9' since '0' is reserved for home navigation)
+        $response = $this->framework->handle($this->createUssdRequest('9', $phoneNumber, $sessionId));
 
         $this->assertStringContainsString('Welcome to USSD App', $response->getMessage());
     }

@@ -51,7 +51,8 @@ class SimpleMenu extends UssdMenu
                 }
 
                 if (is_callable($action)) {
-                    return $action($session, $this->framework, $input);
+                    // Use same signature as UssdMenu::processSimpleMenu: ($input, $session, $framework)
+                    return $action($input, $session, $this->framework);
                 }
             }
 

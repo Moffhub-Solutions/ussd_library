@@ -93,7 +93,7 @@ class SimpleMenuTest extends TestCase
         $actionCalled = false;
 
         $menu = new SimpleMenu('Menu', ['1' => 'Action'], [
-            '1' => function ($session, $framework, $input) use (&$actionCalled): UssdResponse {
+            '1' => function ($input, $session, $framework) use (&$actionCalled): UssdResponse {
                 $actionCalled = true;
 
                 return UssdResponse::continue('Action executed');

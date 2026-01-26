@@ -270,6 +270,8 @@ class UssdMenu implements UssdMenuInterface
 
     protected function processSimpleMenu(string $input, UssdSession $session): UssdResponse
     {
+        $input = trim($input);
+
         if ($this->framework instanceof UssdFramework) {
             if (isset($this->actions[$input])) {
                 $action = $this->actions[$input];
