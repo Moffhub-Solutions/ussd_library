@@ -113,8 +113,6 @@ class UssdAccessList extends Model
 
     /**
      * Add a phone number to the whitelist.
-     *
-     * @return UssdAccessList
      */
     public static function addToWhitelist(
         string $phoneNumber,
@@ -137,8 +135,6 @@ class UssdAccessList extends Model
 
     /**
      * Add a phone number to the blacklist.
-     *
-     * @return UssdAccessList
      */
     public static function addToBlacklist(
         string $phoneNumber,
