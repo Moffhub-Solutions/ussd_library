@@ -24,7 +24,6 @@ use Illuminate\Database\Eloquent\Model;
  * @property array|null $metadata
  * @property Carbon $created_at
  * @property Carbon $updated_at
- *
  */
 class UssdAccessList extends Model
 {
