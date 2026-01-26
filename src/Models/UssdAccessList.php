@@ -24,6 +24,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property array|null $metadata
  * @property Carbon $created_at
  * @property Carbon $updated_at
+ *
+ * @mixin Builder<UssdAccessList>
  */
 class UssdAccessList extends Model
 {
@@ -111,6 +113,8 @@ class UssdAccessList extends Model
 
     /**
      * Add a phone number to the whitelist.
+     *
+     * @return UssdAccessList
      */
     public static function addToWhitelist(
         string $phoneNumber,
@@ -118,7 +122,7 @@ class UssdAccessList extends Model
         ?string $addedBy = null,
         ?\DateTimeInterface $expiresAt = null,
         ?array $metadata = null
-    ): static {
+    ): self {
         return static::updateOrCreate(
             ['phone_number' => $phoneNumber, 'type' => 'whitelist'],
             [
@@ -133,6 +137,8 @@ class UssdAccessList extends Model
 
     /**
      * Add a phone number to the blacklist.
+     *
+     * @return UssdAccessList
      */
     public static function addToBlacklist(
         string $phoneNumber,
@@ -140,7 +146,7 @@ class UssdAccessList extends Model
         ?string $addedBy = null,
         ?\DateTimeInterface $expiresAt = null,
         ?array $metadata = null
-    ): static {
+    ): self {
         return static::updateOrCreate(
             ['phone_number' => $phoneNumber, 'type' => 'blacklist'],
             [
