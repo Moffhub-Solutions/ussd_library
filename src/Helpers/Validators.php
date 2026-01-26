@@ -11,7 +11,7 @@ class Validators
 {
     public static function required(?string $message = 'This field is required'): Closure
     {
-        return fn ($input) => in_array(trim((string) $input), ['', '0'], true) ? $message : true;
+        return fn ($input): string|null|true => in_array(trim((string) $input), ['', '0'], true) ? $message : true;
     }
 
     public static function minLength(int $min, ?string $message = null): Closure
@@ -34,7 +34,7 @@ class Validators
 
     public static function numeric(?string $message = 'Must be a number'): Closure
     {
-        return fn ($input) => is_numeric($input) ? true : $message;
+        return fn ($input): string|true|null => is_numeric($input) ? true : $message;
     }
 
     public static function length(int $min, int $max, ?string $message = null): Closure
@@ -51,27 +51,27 @@ class Validators
 
     public static function phone(?string $message = 'Invalid phone number format'): Closure
     {
-        return fn ($input) => preg_match('/^[0-9+\-\s]+$/', (string) $input) ? true : $message;
+        return fn ($input): string|true|null => preg_match('/^[0-9+\-\s]+$/', (string) $input) ? true : $message;
     }
 
     public static function email(?string $message = 'Invalid email format'): Closure
     {
-        return fn ($input) => filter_var($input, FILTER_VALIDATE_EMAIL) ? true : $message;
+        return fn ($input): string|true|null => filter_var($input, FILTER_VALIDATE_EMAIL) ? true : $message;
     }
 
     public static function inOptions(array $options, ?string $message = 'Invalid option selected'): Closure
     {
-        return fn ($input) => in_array($input, $options) ? true : $message;
+        return fn ($input): string|true|null => in_array($input, $options) ? true : $message;
     }
 
     public static function regex(string $pattern, ?string $message = 'Invalid format'): Closure
     {
-        return fn ($input) => preg_match($pattern, (string) $input) ? true : $message;
+        return fn ($input): string|true|null => preg_match($pattern, (string) $input) ? true : $message;
     }
 
     public static function custom(callable $callback, ?string $message = 'Invalid input'): Closure
     {
-        return fn ($input) => $callback($input) ? true : $message;
+        return fn ($input): string|true|null => $callback($input) ? true : $message;
     }
 
     public static function dob(?string $message = 'Invalid date of birth format', int $minAge = 18): Closure

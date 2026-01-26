@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Moffhub\Ussd\Tests\Unit\DataProviders;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
 use Moffhub\Ussd\DataProviders\DatabaseDataProvider;
@@ -19,7 +20,7 @@ class DatabaseDataProviderTest extends TestCase
         parent::setUp();
 
         // Create the test_models table for testing
-        Schema::create('test_models', function ($table) {
+        Schema::create('test_models', function ($table): void {
             $table->id();
             $table->string('name');
             $table->string('status')->default('active');
@@ -29,6 +30,7 @@ class DatabaseDataProviderTest extends TestCase
         $this->session = new UssdSession('+254712345678', 'test_session');
     }
 
+    #[\Override]
     protected function tearDown(): void
     {
         Schema::dropIfExists('test_models');
@@ -93,7 +95,7 @@ class DatabaseDataProviderTest extends TestCase
 
     public function test_custom_query_callback(): void
     {
-        $customQuery = static fn (): \Illuminate\Database\Eloquent\Builder => TestModel::query()->where('status', 'active');
+        $customQuery = static fn (): Builder => TestModel::query()->where('status', 'active');
 
         // @phpstan-ignore-next-line - Template covariance issue with TestModel vs Model generic
         $provider = new DatabaseDataProvider(TestModel::class, $customQuery);

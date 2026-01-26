@@ -68,7 +68,7 @@ class UssdFlowTest extends TestCase
             '2' => 'For Others',
             '9' => 'Back',
         ], [
-            '1' => fn ($input, $session, $framework) => UssdResponse::end('Airtime purchase successful. KES 100 added to your account.'),
+            '1' => fn ($input, $session, $framework): UssdResponse => UssdResponse::end('Airtime purchase successful. KES 100 added to your account.'),
             '9' => fn ($input, $session, $framework) => $framework->navigateToMenuWithResponse('main'),
         ]);
 

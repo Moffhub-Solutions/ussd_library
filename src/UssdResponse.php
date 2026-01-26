@@ -44,16 +44,21 @@ class UssdResponse implements \Stringable
 
     protected function sanitizeMessage(string $message): string
     {
-        $message = preg_replace('/\s+/', ' ', $message) ?? '';
-
+        // Normalize line endings first
         $message = str_replace(["\r\n", "\r"], "\n", $message);
 
+        // Collapse multiple spaces/tabs (but NOT newlines) into single space
+        $message = preg_replace('/[^\S\n]+/', ' ', $message) ?? '';
+
+        // Process each line individually
         $lines = explode("\n", $message);
         $lines = array_map(trim(...), $lines);
 
+        // Remove empty lines from start
         while ($lines !== [] && empty($lines[0])) {
             array_shift($lines);
         }
+        // Remove empty lines from end
         while ($lines !== [] && empty($lines[count($lines) - 1])) {
             array_pop($lines);
         }

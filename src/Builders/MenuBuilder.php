@@ -39,7 +39,7 @@ class MenuBuilder
     public function options(array $options): self
     {
         // Use array union (+) instead of array_merge to preserve string numeric keys
-        $this->options = $this->options + $options;
+        $this->options += $options;
 
         return $this;
     }

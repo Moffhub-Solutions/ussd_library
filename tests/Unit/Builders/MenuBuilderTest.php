@@ -172,9 +172,9 @@ class MenuBuilderTest extends TestCase
             ->option('1', 'One')
             ->option('2', 'Two')
             ->options(['3' => 'Three'])
-            ->action('1', fn () => UssdResponse::end('Done'))
+            ->action('1', fn (): UssdResponse => UssdResponse::end('Done'))
             ->config(['key' => 'value'])
-            ->onComplete(fn () => UssdResponse::end('Done'));
+            ->onComplete(fn (): UssdResponse => UssdResponse::end('Done'));
 
         $this->assertInstanceOf(MenuBuilder::class, $result);
 

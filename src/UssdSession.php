@@ -643,7 +643,7 @@ class UssdSession
         $metrics = $this->get('performance_metrics', []);
 
         if ($metric) {
-            return array_filter($metrics, fn (array $m) => $m['metric'] === $metric);
+            return array_filter($metrics, fn (array $m): bool => $m['metric'] === $metric);
         }
 
         return $metrics;

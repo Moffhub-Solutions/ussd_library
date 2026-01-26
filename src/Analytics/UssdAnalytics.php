@@ -6,6 +6,8 @@ namespace Moffhub\Ussd\Analytics;
 
 use Carbon\Carbon;
 use Error;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -513,7 +515,7 @@ class UssdAnalytics
 
         if (isset($sessionData['form_data']) && ! empty($sessionData['form_data'])) {
             $formData = $sessionData['form_data'];
-            $filledFields = array_filter($formData, fn ($value) => ! empty($value));
+            $filledFields = array_filter($formData, fn ($value): bool => ! empty($value));
 
             return count($filledFields) >= 3;
         }
@@ -617,12 +619,12 @@ class UssdAnalytics
     }
 
     /**
-     * @param  \Illuminate\Database\Query\Builder|\Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>  $query
+     * @param  Builder|\Illuminate\Database\Eloquent\Builder<Model>  $query
      * @return array<string, mixed>
      */
     protected function generateSummaryStats(mixed $query): array
     {
-        /** @var \Illuminate\Database\Query\Builder $clonedQuery */
+        /** @var Builder $clonedQuery */
         $clonedQuery = clone $query;
 
         return [
@@ -635,12 +637,12 @@ class UssdAnalytics
     }
 
     /**
-     * @param  \Illuminate\Database\Query\Builder|\Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>  $query
+     * @param  Builder|\Illuminate\Database\Eloquent\Builder<Model>  $query
      * @return array<string, mixed>
      */
     protected function analyzeUserBehavior(mixed $query): array
     {
-        /** @var \Illuminate\Database\Query\Builder $clonedQuery */
+        /** @var Builder $clonedQuery */
         $clonedQuery = clone $query;
 
         return [
@@ -658,18 +660,18 @@ class UssdAnalytics
     }
 
     /**
-     * @param  \Illuminate\Database\Query\Builder|\Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>  $query
+     * @param  Builder|\Illuminate\Database\Eloquent\Builder<Model>  $query
      * @return array<string, mixed>
      */
     protected function analyzePerformance(mixed $query): array
     {
-        /** @var \Illuminate\Database\Query\Builder $clonedQuery */
+        /** @var Builder $clonedQuery */
         $clonedQuery = clone $query;
 
         $performanceData = $clonedQuery->where('event_type', 'performance')
             ->select('data')
             ->get()
-            ->map(fn ($record) => json_decode((string) $record->data, true));
+            ->map(fn ($record): mixed => json_decode((string) $record->data, true));
 
         $actionStats = [];
         foreach ($performanceData as $data) {
@@ -700,12 +702,12 @@ class UssdAnalytics
     }
 
     /**
-     * @param  \Illuminate\Database\Query\Builder|\Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>  $query
+     * @param  Builder|\Illuminate\Database\Eloquent\Builder<Model>  $query
      * @return array<string, mixed>
      */
     protected function analyzeErrors(mixed $query): array
     {
-        /** @var \Illuminate\Database\Query\Builder $clonedQuery */
+        /** @var Builder $clonedQuery */
         $clonedQuery = clone $query;
 
         return [

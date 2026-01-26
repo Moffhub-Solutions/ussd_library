@@ -11,9 +11,6 @@ use Moffhub\Ussd\UssdSession;
 
 class DatabaseDataProvider implements DataProviderInterface
 {
-    /** @var class-string<Model> */
-    protected string $model;
-
     /** @var (callable(): Builder<Model>)|null */
     protected mixed $query;
 
@@ -21,9 +18,8 @@ class DatabaseDataProvider implements DataProviderInterface
      * @param  class-string<Model>  $model
      * @param  (callable(): Builder<Model>)|null  $query
      */
-    public function __construct(string $model, ?callable $query = null)
+    public function __construct(protected string $model, ?callable $query = null)
     {
-        $this->model = $model;
         $this->query = $query;
     }
 

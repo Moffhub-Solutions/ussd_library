@@ -36,14 +36,14 @@ class SafaricomProvider extends AbstractUssdProvider
 
     public function getPhoneNumber(Request $request): string
     {
-        $phoneNumber = $request->input('phoneNumber', '');
+        $phoneNumber = $request->input('phoneNumber') ?? '';
 
         return $this->formatPhoneNumber($phoneNumber, '254');
     }
 
     public function getUserInput(Request $request): string
     {
-        $text = $request->input('text', '');
+        $text = $request->input('text') ?? '';
 
         // Africa's Talking sends multiple inputs separated by *
         // We need the last input for processing
@@ -63,7 +63,7 @@ class SafaricomProvider extends AbstractUssdProvider
      */
     public function getInputHistory(Request $request): array
     {
-        $text = $request->input('text', '');
+        $text = $request->input('text') ?? '';
 
         if (empty($text)) {
             return [];

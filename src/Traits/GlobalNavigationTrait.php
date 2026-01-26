@@ -62,7 +62,7 @@ trait GlobalNavigationTrait
 
         $separator = $navConfig['separator'] ?? ' | ';
         $navString = implode($separator, $navOptions);
-        if ($navString !== '' && $navString !== '0') {
+        if ($navString !== '0') {
             return "---\n".$navString;
         }
 

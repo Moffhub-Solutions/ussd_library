@@ -224,7 +224,7 @@ class UssdRateLimiter
         $requests[] = $now->timestamp;
 
         $cutoff = $now->subDay()->timestamp;
-        $requests = array_filter($requests, fn ($timestamp) => $timestamp > $cutoff);
+        $requests = array_filter($requests, fn ($timestamp): bool => $timestamp > $cutoff);
 
         Cache::put($key, $requests, 86400);
 
@@ -264,7 +264,7 @@ class UssdRateLimiter
 
         $cutoff = Carbon::now()->subSeconds($seconds)->timestamp;
 
-        return count(array_filter($requests, fn ($timestamp) => $timestamp > $cutoff));
+        return count(array_filter($requests, fn ($timestamp): bool => $timestamp > $cutoff));
     }
 
     protected function blockUser(string $phoneNumber): void

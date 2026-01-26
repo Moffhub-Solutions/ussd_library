@@ -61,7 +61,7 @@ class UssdInputSanitizerTest extends TestCase
     {
         // The sanitizer first removes special characters, then validates
         // SQL keywords get flagged by the isSuspicious method
-        $result = $this->sanitizer->sanitize("1'; DROP TABLE users;--", 'text');
+        $this->sanitizer->sanitize("1'; DROP TABLE users;--", 'text');
 
         // After sanitization, input becomes "1 DROP TABLE users" which is still flagged
         // The sanitizer may flag it as suspicious due to blocked patterns

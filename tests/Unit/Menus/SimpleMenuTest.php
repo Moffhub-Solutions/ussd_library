@@ -128,7 +128,7 @@ class SimpleMenuTest extends TestCase
     {
         $menu = new SimpleMenu('Menu');
 
-        $menu->addOption('1', 'First Option', fn () => UssdResponse::end('Done'));
+        $menu->addOption('1', 'First Option', fn (): UssdResponse => UssdResponse::end('Done'));
 
         $menu->addOption('2', 'Second Option');
 

@@ -25,12 +25,11 @@ use Illuminate\Database\Eloquent\Model;
  * @property Carbon $created_at
  * @property Carbon $updated_at
  *
- * @method static \Illuminate\Database\Eloquent\Builder<static> query()
- * @method static \Illuminate\Database\Eloquent\Builder<static> where(string|\Closure $column, mixed $operator = null, mixed $value = null, string $boolean = 'and')
- * @method static \Illuminate\Database\Eloquent\Builder<static> whitelist()
- * @method static \Illuminate\Database\Eloquent\Builder<static> blacklist()
- * @method static \Illuminate\Database\Eloquent\Builder<static> active()
- * @method static \Illuminate\Database\Eloquent\Builder<static> forPhone(string $phoneNumber)
+ * @method static Builder<static> query()
+ * @method static Builder<static> whitelist()
+ * @method static Builder<static> blacklist()
+ * @method static Builder<static> active()
+ * @method static Builder<static> forPhone(string $phoneNumber)
  * @method static static updateOrCreate(array $attributes, array $values = [])
  */
 class UssdAccessList extends Model
@@ -56,8 +55,8 @@ class UssdAccessList extends Model
     /**
      * Scope to get whitelist entries.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
-     * @return \Illuminate\Database\Eloquent\Builder<static>
+     * @param  Builder<static>  $query
+     * @return Builder<static>
      */
     public function scopeWhitelist(Builder $query): Builder
     {
@@ -67,8 +66,8 @@ class UssdAccessList extends Model
     /**
      * Scope to get blacklist entries.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
-     * @return \Illuminate\Database\Eloquent\Builder<static>
+     * @param  Builder<static>  $query
+     * @return Builder<static>
      */
     public function scopeBlacklist(Builder $query): Builder
     {
@@ -78,8 +77,8 @@ class UssdAccessList extends Model
     /**
      * Scope to get only active entries.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
-     * @return \Illuminate\Database\Eloquent\Builder<static>
+     * @param  Builder<static>  $query
+     * @return Builder<static>
      */
     public function scopeActive(Builder $query): Builder
     {
@@ -93,8 +92,8 @@ class UssdAccessList extends Model
     /**
      * Scope to find by phone number.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
-     * @return \Illuminate\Database\Eloquent\Builder<static>
+     * @param  Builder<static>  $query
+     * @return Builder<static>
      */
     public function scopeForPhone(Builder $query, string $phoneNumber): Builder
     {
