@@ -22,6 +22,7 @@ class SimpleMenuTest extends TestCase
         parent::setUp();
         $this->session = new UssdSession('+254712345678', 'test_session');
         $this->framework = new UssdFramework;
+        $this->framework->setSession($this->session);
     }
 
     public function test_constructor_sets_properties(): void

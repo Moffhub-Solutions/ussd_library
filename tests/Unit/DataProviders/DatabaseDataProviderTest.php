@@ -5,26 +5,34 @@ declare(strict_types=1);
 namespace Moffhub\Ussd\Tests\Unit\DataProviders;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Moffhub\Ussd\DataProviders\DatabaseDataProvider;
 use Moffhub\Ussd\Tests\TestCase;
 use Moffhub\Ussd\UssdSession;
 
 class DatabaseDataProviderTest extends TestCase
 {
-    use RefreshDatabase;
-
     private UssdSession $session;
 
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Create the test_models table for testing
+        Schema::create('test_models', function ($table) {
+            $table->id();
+            $table->string('name');
+            $table->string('status')->default('active');
+            $table->timestamps();
+        });
+
         $this->session = new UssdSession('+254712345678', 'test_session');
     }
 
-    protected function defineDatabaseMigrations(): void
+    protected function tearDown(): void
     {
-        $this->loadMigrationsFrom(__DIR__.'/../../database/migrations');
+        Schema::dropIfExists('test_models');
+        parent::tearDown();
     }
 
     public function test_get_data_returns_correct_structure(): void

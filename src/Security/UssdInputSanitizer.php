@@ -269,7 +269,10 @@ class UssdInputSanitizer
         ];
     }
 
-    protected function logSuspiciousInput(string $input, string $reasons, string $context): void
+    /**
+     * @param  array<int, string>  $reasons
+     */
+    protected function logSuspiciousInput(string $input, array $reasons, string $context): void
     {
         if (! $this->config['log_suspicious']) {
             return;

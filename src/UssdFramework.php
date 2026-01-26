@@ -311,11 +311,6 @@ class UssdFramework
         return $this->performanceMetrics;
     }
 
-    public function getSession(): ?UssdSession
-    {
-        return $this->session;
-    }
-
     public function handle(Request $request): UssdResponse
     {
         $this->request = $request;
@@ -1042,5 +1037,33 @@ class UssdFramework
         }
 
         return $this;
+    }
+
+    /**
+     * Set the session instance (useful for testing).
+     */
+    public function setSession(UssdSession $session): static
+    {
+        $this->session = $session;
+
+        return $this;
+    }
+
+    /**
+     * Set the request instance (useful for testing).
+     */
+    public function setRequest(Request $request): static
+    {
+        $this->request = $request;
+
+        return $this;
+    }
+
+    /**
+     * Get the current session instance.
+     */
+    public function getSession(): ?UssdSession
+    {
+        return $this->session;
     }
 }
