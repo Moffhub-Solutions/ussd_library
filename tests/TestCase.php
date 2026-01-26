@@ -28,10 +28,8 @@ abstract class TestCase extends BaseTestCase
 
         // Configure cache to use array driver for testing
         $app['config']->set('cache.default', 'array');
-    }
 
-    protected function defineDatabaseMigrations(): void
-    {
-        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+        // Disable USSD database features for tests that don't need them
+        $app['config']->set('ussd.database.enabled', false);
     }
 }
