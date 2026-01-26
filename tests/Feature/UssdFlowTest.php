@@ -41,16 +41,16 @@ class UssdFlowTest extends TestCase
             '2' => 'Send Money',
             '3' => 'Buy Airtime',
         ], [
-            '1' => fn ($session, $framework) => $framework->navigateToMenuWithResponse('balance'),
-            '2' => fn ($session, $framework) => $framework->navigateToMenuWithResponse('send_money'),
-            '3' => fn ($session, $framework) => $framework->navigateToMenuWithResponse('airtime'),
+            '1' => fn ($input, $session, $framework) => $framework->navigateToMenuWithResponse('balance'),
+            '2' => fn ($input, $session, $framework) => $framework->navigateToMenuWithResponse('send_money'),
+            '3' => fn ($input, $session, $framework) => $framework->navigateToMenuWithResponse('airtime'),
         ]);
 
         // Balance menu
         $balanceMenu = new SimpleMenu('Your balance is KES 1,500.00', [
             '0' => 'Back to Main Menu',
         ], [
-            '0' => fn ($session, $framework) => $framework->navigateToMenuWithResponse('main'),
+            '0' => fn ($input, $session, $framework) => $framework->navigateToMenuWithResponse('main'),
         ]);
 
         // Send money menu
@@ -59,7 +59,7 @@ class UssdFlowTest extends TestCase
             '2' => 'To Bank',
             '0' => 'Back',
         ], [
-            '0' => fn ($session, $framework) => $framework->navigateToMenuWithResponse('main'),
+            '0' => fn ($input, $session, $framework) => $framework->navigateToMenuWithResponse('main'),
         ]);
 
         // Airtime menu
@@ -68,8 +68,8 @@ class UssdFlowTest extends TestCase
             '2' => 'For Others',
             '0' => 'Back',
         ], [
-            '1' => fn ($session) => UssdResponse::end('Airtime purchase successful. KES 100 added to your account.'),
-            '0' => fn ($session, $framework) => $framework->navigateToMenuWithResponse('main'),
+            '1' => fn ($input, $session, $framework) => UssdResponse::end('Airtime purchase successful. KES 100 added to your account.'),
+            '0' => fn ($input, $session, $framework) => $framework->navigateToMenuWithResponse('main'),
         ]);
 
         $this->framework->registerMenu('main', $mainMenu);

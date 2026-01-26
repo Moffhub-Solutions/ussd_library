@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Moffhub\Ussd\Tests\Unit\Builders;
 
+use Illuminate\Http\Request;
 use Moffhub\Ussd\Builders\MenuBuilder;
 use Moffhub\Ussd\Menus\SimpleMenu;
 use Moffhub\Ussd\Tests\TestCase;
+use Moffhub\Ussd\UssdFramework;
 use Moffhub\Ussd\UssdResponse;
 use Moffhub\Ussd\UssdSession;
 
@@ -60,15 +62,23 @@ class MenuBuilderTest extends TestCase
         $session = new UssdSession('+254712345678', 'test');
         $actionCalled = false;
 
+        $framework = new UssdFramework;
+        $framework->setSession($session);
+        $framework->setRequest(Request::create('/', 'POST', [
+            'phoneNumber' => '+254712345678',
+            'sessionId' => 'test',
+        ]));
+
         $menu = new MenuBuilder('test')
             ->title('Menu')
-            ->option('1', 'Action', function () use (&$actionCalled): UssdResponse {
+            ->option('1', 'Action', function ($session, $framework, $input) use (&$actionCalled): UssdResponse {
                 $actionCalled = true;
 
                 return UssdResponse::end('Done');
             })
             ->build();
 
+        $menu->setFramework($framework);
         $session->set('step', 0);
         $menu->process('1', $session);
 
@@ -100,16 +110,24 @@ class MenuBuilderTest extends TestCase
         $session = new UssdSession('+254712345678', 'test');
         $actionCalled = false;
 
+        $framework = new UssdFramework;
+        $framework->setSession($session);
+        $framework->setRequest(Request::create('/', 'POST', [
+            'phoneNumber' => '+254712345678',
+            'sessionId' => 'test',
+        ]));
+
         $menu = new MenuBuilder('test')
             ->title('Menu')
             ->option('1', 'Option')
-            ->action('1', function () use (&$actionCalled): UssdResponse {
+            ->action('1', function ($session, $framework, $input) use (&$actionCalled): UssdResponse {
                 $actionCalled = true;
 
                 return UssdResponse::end('Done');
             })
             ->build();
 
+        $menu->setFramework($framework);
         $session->set('step', 0);
         $menu->process('1', $session);
 

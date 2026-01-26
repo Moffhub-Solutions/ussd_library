@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Moffhub\Ussd\Tests\Unit\Actions;
 
+use Illuminate\Http\Request;
 use Moffhub\Ussd\Actions\NavigateAction;
 use Moffhub\Ussd\Menus\SimpleMenu;
 use Moffhub\Ussd\Tests\TestCase;
@@ -22,6 +23,10 @@ class NavigateActionTest extends TestCase
         $this->session = new UssdSession('+254712345678', 'test_session');
         $this->framework = new UssdFramework;
         $this->framework->setSession($this->session);
+        $this->framework->setRequest(Request::create('/', 'POST', [
+            'phoneNumber' => '+254712345678',
+            'sessionId' => 'test_session',
+        ]));
     }
 
     public function test_execute_navigates_to_target_menu(): void

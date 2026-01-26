@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Moffhub\Ussd\Tests\Unit\Menus;
 
+use Illuminate\Http\Request;
 use Moffhub\Ussd\Actions\NavigateAction;
 use Moffhub\Ussd\Menus\SimpleMenu;
 use Moffhub\Ussd\Tests\TestCase;
@@ -23,6 +24,10 @@ class SimpleMenuTest extends TestCase
         $this->session = new UssdSession('+254712345678', 'test_session');
         $this->framework = new UssdFramework;
         $this->framework->setSession($this->session);
+        $this->framework->setRequest(Request::create('/', 'POST', [
+            'phoneNumber' => '+254712345678',
+            'sessionId' => 'test_session',
+        ]));
     }
 
     public function test_constructor_sets_properties(): void
@@ -148,7 +153,7 @@ class SimpleMenuTest extends TestCase
         $actionCalled = false;
 
         $menu = new SimpleMenu('Menu', ['1' => 'Option'], [
-            '1' => function () use (&$actionCalled): UssdResponse {
+            '1' => function ($input, $session, $framework) use (&$actionCalled): UssdResponse {
                 $actionCalled = true;
 
                 return UssdResponse::continue('Called');
