@@ -10,7 +10,11 @@ class UssdServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+        // Only load migrations when not in testing environment
+        // Tests that need migrations should load them explicitly
+        if (! $this->app->environment('testing')) {
+            $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+        }
 
         if ($this->app->runningInConsole() && ! $this->app->environment('testing')) {
             if (function_exists('config_path')) {

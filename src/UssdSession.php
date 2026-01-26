@@ -164,7 +164,6 @@ class UssdSession
     {
         data_set($this->data, $key, $value);
         $this->data['updated_at'] = Carbon::now();
-        $this->updateAccessCount();
     }
 
     public function getCurrentMenu(): ?string
