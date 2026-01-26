@@ -25,12 +25,6 @@ use Illuminate\Database\Eloquent\Model;
  * @property Carbon $created_at
  * @property Carbon $updated_at
  *
- * @method static Builder<static> query()
- * @method static Builder<static> whitelist()
- * @method static Builder<static> blacklist()
- * @method static Builder<static> active()
- * @method static Builder<static> forPhone(string $phoneNumber)
- * @method static static updateOrCreate(array $attributes, array $values = [])
  */
 class UssdAccessList extends Model
 {
