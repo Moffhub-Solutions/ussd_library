@@ -25,7 +25,7 @@ interface AccessListProviderInterface
     /**
      * Add a phone number to the whitelist.
      *
-     * @param array<string, mixed> $metadata Additional metadata
+     * @param  array<string, mixed>  $metadata  Additional metadata
      */
     public function addToWhitelist(
         string $phoneNumber,
@@ -38,7 +38,7 @@ interface AccessListProviderInterface
     /**
      * Add a phone number to the blacklist.
      *
-     * @param array<string, mixed> $metadata Additional metadata
+     * @param  array<string, mixed>  $metadata  Additional metadata
      */
     public function addToBlacklist(
         string $phoneNumber,

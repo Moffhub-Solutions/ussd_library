@@ -12,21 +12,13 @@ class SimpleMenu extends UssdMenu
 {
     protected string $title;
 
-    protected array $options = [];
-
-    protected array $actions = [];
-
-    protected ?string $footer;
-
-    public function __construct(string $title, array $options = [], array $actions = [], ?string $footer = null)
+    public function __construct(string $title, protected array $options = [], protected array $actions = [], protected ?string $footer = null)
     {
         parent::__construct($title);
         $this->title = $title;
-        $this->options = $options;
-        $this->actions = $actions;
-        $this->footer = $footer;
     }
 
+    #[\Override]
     protected function showInitial(UssdSession $session): UssdResponse
     {
         $message = $this->title."\n";
@@ -54,10 +46,11 @@ class SimpleMenu extends UssdMenu
 
             if (isset($this->actions[$input]) && $this->framework) {
                 $action = $this->actions[$input];
-
                 if ($action instanceof ActionInterface) {
                     return $action->execute($input, $session, $this->framework);
-                } elseif (is_callable($action)) {
+                }
+
+                if (is_callable($action)) {
                     return $action($session, $this->framework, $input);
                 }
             }
@@ -68,6 +61,7 @@ class SimpleMenu extends UssdMenu
         return UssdResponse::end('Session ended.');
     }
 
+    #[\Override]
     public function addOption(string $key, string $value, ?callable $action = null): static
     {
         $this->options[$key] = $value;

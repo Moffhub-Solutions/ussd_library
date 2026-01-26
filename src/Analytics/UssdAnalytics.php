@@ -149,7 +149,7 @@ class UssdAnalytics
         $event = [
             'event_type' => 'error',
             'phone_number' => $phoneNumber ? $this->hashPhoneNumber($phoneNumber) : null,
-            'error_type' => get_class($error),
+            'error_type' => $error::class,
             'error_message' => $error->getMessage(),
             'error_code' => $error->getCode(),
             'timestamp' => now(),
@@ -271,7 +271,7 @@ class UssdAnalytics
 
     public function flushBuffer(): bool
     {
-        if (empty($this->metricsBuffer) || ! $this->config['store_in_database']) {
+        if ($this->metricsBuffer === [] || ! $this->config['store_in_database']) {
             return false;
         }
 
@@ -513,9 +513,7 @@ class UssdAnalytics
 
         if (isset($sessionData['form_data']) && ! empty($sessionData['form_data'])) {
             $formData = $sessionData['form_data'];
-            $filledFields = array_filter($formData, function ($value) {
-                return ! empty($value);
-            });
+            $filledFields = array_filter($formData, fn ($value) => ! empty($value));
 
             return count($filledFields) >= 3;
         }
@@ -603,7 +601,7 @@ class UssdAnalytics
 
     protected function calculatePercentile(array $values, float $percentile): float
     {
-        if (empty($values)) {
+        if ($values === []) {
             return 0;
         }
 
@@ -611,7 +609,7 @@ class UssdAnalytics
         $lower = floor($index);
         $upper = ceil($index);
 
-        if ($lower == $upper) {
+        if ($lower === $upper) {
             return $values[$lower];
         }
 
@@ -656,9 +654,7 @@ class UssdAnalytics
         $performanceData = $clonedQuery->where('event_type', 'performance')
             ->select('data')
             ->get()
-            ->map(function ($record) {
-                return json_decode($record->data, true);
-            });
+            ->map(fn ($record) => json_decode((string) $record->data, true));
 
         $actionStats = [];
         foreach ($performanceData as $data) {
@@ -675,7 +671,7 @@ class UssdAnalytics
             $actionStats[$action]['durations'][] = $data['duration_ms'];
         }
 
-        foreach ($actionStats as $action => &$stats) {
+        foreach ($actionStats as &$stats) {
             sort($stats['durations']);
             $count = count($stats['durations']);
             $stats['avg_duration'] = $stats['total_duration'] / $stats['count'];

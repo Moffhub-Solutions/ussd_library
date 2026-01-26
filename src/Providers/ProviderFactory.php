@@ -49,7 +49,7 @@ class ProviderFactory
             $provider = new $providerClass;
 
             // Apply configuration
-            if (! empty($config)) {
+            if ($config !== []) {
                 self::applyConfig($provider, $config);
             }
 

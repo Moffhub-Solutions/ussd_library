@@ -26,8 +26,6 @@ use Illuminate\Support\Facades\Log;
  * - grace_period: Timed out but recoverable
  * - recovered: Restored from expired session
  * - expired: Lost, new session created
- *
- * @package Moffhub\Ussd
  */
 class UssdSession
 {
@@ -52,9 +50,9 @@ class UssdSession
     /**
      * Create a new USSD session.
      *
-     * @param Request|string $phoneNumberOrRequest Phone number or HTTP request
-     * @param array|string $configOrSessionId Configuration array or session ID (when first param is string)
-     * @param array $config Configuration array (only used when first param is string)
+     * @param  Request|string  $phoneNumberOrRequest  Phone number or HTTP request
+     * @param  array|string  $configOrSessionId  Configuration array or session ID (when first param is string)
+     * @param  array  $config  Configuration array (only used when first param is string)
      */
     public function __construct(Request|string $phoneNumberOrRequest, array|string $configOrSessionId = [], array $config = [])
     {
@@ -350,7 +348,7 @@ class UssdSession
     {
         if ($useSnapshot) {
             $snapshots = $this->getContextSnapshots();
-            if (! empty($snapshots)) {
+            if ($snapshots !== []) {
                 $latestSnapshot = end($snapshots);
 
                 return $this->restoreFromSnapshot($latestSnapshot);
@@ -490,7 +488,11 @@ class UssdSession
 
     public function isInGracePeriod(): bool
     {
-        return $this->getFlag('in_grace_period', false) || $this->status === 'grace_period';
+        if ($this->getFlag('in_grace_period', false)) {
+            return true;
+        }
+
+        return $this->status === 'grace_period';
     }
 
     public function getContinuationMessage(): ?string
@@ -642,9 +644,7 @@ class UssdSession
         $metrics = $this->get('performance_metrics', []);
 
         if ($metric) {
-            return array_filter($metrics, function ($m) use ($metric) {
-                return $m['metric'] === $metric;
-            });
+            return array_filter($metrics, fn (array $m) => $m['metric'] === $metric);
         }
 
         return $metrics;
@@ -671,7 +671,7 @@ class UssdSession
 
     public function getTimeSinceLastAccess(): float
     {
-        if ($this->lastAccessTime) {
+        if ($this->lastAccessTime instanceof Carbon) {
             return Carbon::now()->diffInSeconds($this->lastAccessTime);
         }
 
@@ -713,7 +713,11 @@ class UssdSession
 
     protected function isCompleted(): bool
     {
-        return $this->getFlag('completed', false) || $this->getFlag('session_complete', false);
+        if ($this->getFlag('completed', false)) {
+            return true;
+        }
+
+        return (bool) $this->getFlag('session_complete', false);
     }
 
     public function exists(): bool

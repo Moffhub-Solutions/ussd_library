@@ -93,6 +93,7 @@ class MtnProvider extends AbstractUssdProvider
             ?? $request->input('USSD_OPERATION');
     }
 
+    #[\Override]
     public function formatResponse(UssdResponse $response): string
     {
         // MTN sometimes requires different response format
@@ -106,11 +107,12 @@ class MtnProvider extends AbstractUssdProvider
         return 'END '.$message;
     }
 
+    #[\Override]
     public function validateRequest(Request $request): bool
     {
         $phoneNumber = $this->getPhoneNumber($request);
         $sessionId = $this->getSessionId($request);
 
-        return ! empty($phoneNumber) && ! empty($sessionId);
+        return $phoneNumber !== '' && $phoneNumber !== '0' && ! in_array($sessionId, [null, '', '0'], true);
     }
 }

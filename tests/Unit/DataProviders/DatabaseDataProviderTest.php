@@ -86,9 +86,7 @@ class DatabaseDataProviderTest extends TestCase
 
     public function test_custom_query_callback(): void
     {
-        $customQuery = function () {
-            return TestModel::query()->where('status', 'active');
-        };
+        $customQuery = (fn () => TestModel::query()->where('status', 'active'));
 
         $provider = new DatabaseDataProvider(TestModel::class, $customQuery);
 

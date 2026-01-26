@@ -134,6 +134,6 @@ class UssdInputSanitizerTest extends TestCase
         $result = $this->sanitizer->sanitize($longInput, 'text');
 
         // Should be truncated or flagged
-        $this->assertLessThanOrEqual(500, strlen($result['input']));
+        $this->assertLessThanOrEqual(500, strlen((string) $result['input']));
     }
 }

@@ -46,7 +46,7 @@ class UssdDatabaseService
                 'created_at' => DB::raw('COALESCE(created_at, NOW())'),
             ];
 
-            if ($blockedUntil) {
+            if ($blockedUntil instanceof Carbon) {
                 $data['blocked_until'] = $blockedUntil;
                 $data['violation_count'] = DB::raw('COALESCE(violation_count, 0) + 1');
                 $data['last_violation'] = now();
@@ -439,8 +439,8 @@ class UssdDatabaseService
 
     public function getDashboardStats(?Carbon $startDate = null, ?Carbon $endDate = null): array
     {
-        $startDate = $startDate ?? Carbon::now()->subDays(7);
-        $endDate = $endDate ?? Carbon::now();
+        $startDate ??= Carbon::now()->subDays(7);
+        $endDate ??= Carbon::now();
 
         return [
             'rate_limits' => $this->getRateLimitStats($startDate, $endDate),

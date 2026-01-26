@@ -6,15 +6,7 @@ use Moffhub\Ussd\Menus\ConditionalMenu;
 
 class ConditionalMenuBuilder
 {
-    protected ConditionalMenu $menu;
-
-    protected UssdBuilder $builder;
-
-    public function __construct(ConditionalMenu $menu, UssdBuilder $builder)
-    {
-        $this->menu = $menu;
-        $this->builder = $builder;
-    }
+    public function __construct(protected ConditionalMenu $menu, protected UssdBuilder $builder) {}
 
     public function when(callable $condition, mixed $menu): self
     {

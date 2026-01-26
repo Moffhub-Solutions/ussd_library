@@ -12,12 +12,7 @@ use Moffhub\Ussd\UssdSession;
 
 class CallbackAction implements ActionInterface
 {
-    protected ?Closure $callback;
-
-    public function __construct(?Closure $callback)
-    {
-        $this->callback = $callback;
-    }
+    public function __construct(protected ?Closure $callback) {}
 
     public function execute(?string $input, UssdSession $session, UssdFramework $framework): UssdResponse
     {

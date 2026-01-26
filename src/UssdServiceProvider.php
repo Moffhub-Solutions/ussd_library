@@ -27,6 +27,7 @@ class UssdServiceProvider extends ServiceProvider
         }
     }
 
+    #[\Override]
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__.'/Config/ussd.php', 'ussd');

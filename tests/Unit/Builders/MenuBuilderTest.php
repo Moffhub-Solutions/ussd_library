@@ -29,7 +29,7 @@ class MenuBuilderTest extends TestCase
     {
         $session = new UssdSession('+254712345678', 'test');
 
-        $menu = (new MenuBuilder('test'))
+        $menu = new MenuBuilder('test')
             ->title('My Custom Title')
             ->option('1', 'Option')
             ->build();
@@ -43,7 +43,7 @@ class MenuBuilderTest extends TestCase
     {
         $session = new UssdSession('+254712345678', 'test');
 
-        $menu = (new MenuBuilder('test'))
+        $menu = new MenuBuilder('test')
             ->title('Menu')
             ->option('1', 'Option One')
             ->option('2', 'Option Two')
@@ -60,9 +60,9 @@ class MenuBuilderTest extends TestCase
         $session = new UssdSession('+254712345678', 'test');
         $actionCalled = false;
 
-        $menu = (new MenuBuilder('test'))
+        $menu = new MenuBuilder('test')
             ->title('Menu')
-            ->option('1', 'Action', function () use (&$actionCalled) {
+            ->option('1', 'Action', function () use (&$actionCalled): UssdResponse {
                 $actionCalled = true;
 
                 return UssdResponse::end('Done');
@@ -79,7 +79,7 @@ class MenuBuilderTest extends TestCase
     {
         $session = new UssdSession('+254712345678', 'test');
 
-        $menu = (new MenuBuilder('test'))
+        $menu = new MenuBuilder('test')
             ->title('Menu')
             ->options([
                 '1' => 'First',
@@ -100,10 +100,10 @@ class MenuBuilderTest extends TestCase
         $session = new UssdSession('+254712345678', 'test');
         $actionCalled = false;
 
-        $menu = (new MenuBuilder('test'))
+        $menu = new MenuBuilder('test')
             ->title('Menu')
             ->option('1', 'Option')
-            ->action('1', function () use (&$actionCalled) {
+            ->action('1', function () use (&$actionCalled): UssdResponse {
                 $actionCalled = true;
 
                 return UssdResponse::end('Done');
@@ -120,10 +120,10 @@ class MenuBuilderTest extends TestCase
     {
         $completeCalled = false;
 
-        $menu = (new MenuBuilder('test'))
+        $menu = new MenuBuilder('test')
             ->title('Menu')
             ->option('1', 'Option')
-            ->onComplete(function () use (&$completeCalled) {
+            ->onComplete(function () use (&$completeCalled): UssdResponse {
                 $completeCalled = true;
 
                 return UssdResponse::end('Complete');
@@ -136,7 +136,7 @@ class MenuBuilderTest extends TestCase
 
     public function test_config_sets_configuration(): void
     {
-        $menu = (new MenuBuilder('test'))
+        $menu = new MenuBuilder('test')
             ->title('Menu')
             ->option('1', 'Option')
             ->config(['custom_key' => 'custom_value'])
@@ -154,13 +154,9 @@ class MenuBuilderTest extends TestCase
             ->option('1', 'One')
             ->option('2', 'Two')
             ->options(['3' => 'Three'])
-            ->action('1', function () {
-                return UssdResponse::end('Done');
-            })
+            ->action('1', fn () => UssdResponse::end('Done'))
             ->config(['key' => 'value'])
-            ->onComplete(function () {
-                return UssdResponse::end('Done');
-            });
+            ->onComplete(fn () => UssdResponse::end('Done'));
 
         $this->assertInstanceOf(MenuBuilder::class, $result);
 

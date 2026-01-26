@@ -94,7 +94,7 @@ return [
         'enabled' => env('USSD_CACHE_ENABLED', true),
         'menu_content_ttl' => env('USSD_CACHE_MENU_TTL', 3600),
         'data_provider_ttl' => env('USSD_CACHE_DATA_PROVIDER_TTL', 600),
-        'driver' => env('USSD_CACHE_DRIVER', null), // Uses default Laravel cache driver if null
+        'driver' => env('USSD_CACHE_DRIVER'), // Uses default Laravel cache driver if null
     ],
 
     /*
@@ -135,10 +135,10 @@ return [
         'access_list_cache_ttl' => env('USSD_ACCESS_LIST_CACHE_TTL', 300),
 
         // Static whitelist (comma-separated phone numbers)
-        'whitelist' => env('USSD_WHITELIST', null) ? explode(',', env('USSD_WHITELIST')) : [],
+        'whitelist' => env('USSD_WHITELIST') ? explode(',', (string) env('USSD_WHITELIST')) : [],
 
         // Static blacklist (comma-separated phone numbers)
-        'blacklist' => env('USSD_BLACKLIST', null) ? explode(',', env('USSD_BLACKLIST')) : [],
+        'blacklist' => env('USSD_BLACKLIST') ? explode(',', (string) env('USSD_BLACKLIST')) : [],
     ],
 
     /*
@@ -174,7 +174,7 @@ return [
 
     'database' => [
         'enabled' => env('USSD_DATABASE_ENABLED', true),
-        'connection' => env('USSD_DATABASE_CONNECTION', null), // Uses default Laravel connection if null
+        'connection' => env('USSD_DATABASE_CONNECTION'), // Uses default Laravel connection if null
         'save_rate_limits' => env('USSD_DB_SAVE_RATE_LIMITS', true),
         'save_security_events' => env('USSD_DB_SAVE_SECURITY_EVENTS', true),
         'save_sessions' => env('USSD_DB_SAVE_SESSIONS', true),
@@ -213,7 +213,7 @@ return [
     */
 
     'logging' => [
-        'channel' => env('USSD_LOG_CHANNEL', null), // Uses default Laravel log channel if null
+        'channel' => env('USSD_LOG_CHANNEL'), // Uses default Laravel log channel if null
         'level' => env('USSD_LOG_LEVEL', 'debug'),
 
         // Log sensitive data (should be false in production)

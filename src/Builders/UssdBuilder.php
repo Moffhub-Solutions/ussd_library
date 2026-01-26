@@ -38,7 +38,7 @@ class UssdBuilder
 
     public function menu(string $name, ?Closure $callback = null): static
     {
-        if ($callback) {
+        if ($callback instanceof \Closure) {
             $ussdMenu = new UssdMenu($name);
             $menuBuilder = new UnifiedMenuBuilder($ussdMenu, $this);
             $callback($menuBuilder);
@@ -84,7 +84,7 @@ class UssdBuilder
     {
         $formBuilder = new FlexibleFormBuilder($title, $onComplete);
 
-        if ($callback) {
+        if ($callback instanceof \Closure) {
             $callback($formBuilder);
         }
 
@@ -170,10 +170,9 @@ class UssdBuilder
     {
         $currentConfig = $this->framework?->getConfig();
         $mergedConfig = array_merge($currentConfig, $config);
-        if ($this->framework) {
+        if ($this->framework instanceof UssdFramework) {
             $reflection = new \ReflectionClass($this->framework);
             $configProperty = $reflection->getProperty('config');
-            $configProperty->setAccessible(true);
             $configProperty->setValue($this->framework, $mergedConfig);
         }
 
@@ -211,7 +210,7 @@ class UssdBuilder
 
     public function build(): UssdFramework
     {
-        if ($this->framework) {
+        if ($this->framework instanceof UssdFramework) {
             $this->framework->registerMenus($this->menus);
 
             return $this->framework;

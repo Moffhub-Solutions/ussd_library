@@ -74,7 +74,7 @@ class UssdAuditLogger
 
     protected function saveSecurityEventToDatabase(string $eventType, string $phoneNumber, array $details, string $severity): void
     {
-        if ($this->databaseService) {
+        if ($this->databaseService instanceof UssdDatabaseService) {
             $this->databaseService->saveSecurityEvent($eventType, $phoneNumber, $details, $severity);
 
             return;
@@ -248,7 +248,7 @@ class UssdAuditLogger
 
     protected function sanitizePhoneNumber(string $phoneNumber): ?string
     {
-        if (empty($phoneNumber)) {
+        if ($phoneNumber === '' || $phoneNumber === '0') {
             return null;
         }
 
@@ -264,7 +264,7 @@ class UssdAuditLogger
         $sanitized = [];
 
         foreach ($details as $key => $value) {
-            if (in_array(strtolower($key), $this->config['sensitive_fields'])) {
+            if (in_array(strtolower((string) $key), $this->config['sensitive_fields'])) {
                 $sanitized[$key] = $this->maskSensitiveData($value);
             } else {
                 $sanitized[$key] = $value;
@@ -307,10 +307,11 @@ class UssdAuditLogger
             'session_timeout',
             'multiple_failures',
         ];
-
         if (in_array($event, $highSeverityEvents)) {
             return 'high';
-        } elseif (in_array($event, $mediumSeverityEvents)) {
+        }
+
+        if (in_array($event, $mediumSeverityEvents)) {
             return 'medium';
         }
 
@@ -321,15 +322,18 @@ class UssdAuditLogger
     {
         if ($duration < 100) {
             return 'excellent';
-        } elseif ($duration < 500) {
-            return 'good';
-        } elseif ($duration < 1000) {
-            return 'acceptable';
-        } elseif ($duration < 3000) {
-            return 'slow';
-        } else {
-            return 'very_slow';
         }
+        if ($duration < 500) {
+            return 'good';
+        }
+        if ($duration < 1000) {
+            return 'acceptable';
+        }
+        if ($duration < 3000) {
+            return 'slow';
+        }
+
+        return 'very_slow';
     }
 
     protected function isEnabled(): bool

@@ -87,7 +87,7 @@ class SimpleMenuTest extends TestCase
         $actionCalled = false;
 
         $menu = new SimpleMenu('Menu', ['1' => 'Action'], [
-            '1' => function ($session, $framework, $input) use (&$actionCalled) {
+            '1' => function ($session, $framework, $input) use (&$actionCalled): UssdResponse {
                 $actionCalled = true;
 
                 return UssdResponse::continue('Action executed');
@@ -122,9 +122,7 @@ class SimpleMenuTest extends TestCase
     {
         $menu = new SimpleMenu('Menu');
 
-        $menu->addOption('1', 'First Option', function () {
-            return UssdResponse::end('Done');
-        });
+        $menu->addOption('1', 'First Option', fn () => UssdResponse::end('Done'));
 
         $menu->addOption('2', 'Second Option');
 
@@ -149,7 +147,7 @@ class SimpleMenuTest extends TestCase
         $actionCalled = false;
 
         $menu = new SimpleMenu('Menu', ['1' => 'Option'], [
-            '1' => function () use (&$actionCalled) {
+            '1' => function () use (&$actionCalled): UssdResponse {
                 $actionCalled = true;
 
                 return UssdResponse::continue('Called');

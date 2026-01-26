@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -14,8 +15,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $menu_name
  * @property string|null $action
  * @property array|null $metadata
- * @property \Carbon\CarbonImmutable|null $event_timestamp
- * @property \Carbon\CarbonImmutable|null $created_at
- * @property \Carbon\CarbonImmutable|null $updated_at
+ * @property CarbonImmutable|null $event_timestamp
+ * @property CarbonImmutable|null $created_at
+ * @property CarbonImmutable|null $updated_at
  */
 class UssdSessionAnalytics extends Model {}

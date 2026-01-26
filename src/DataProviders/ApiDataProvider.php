@@ -11,15 +11,9 @@ class ApiDataProvider implements DataProviderInterface
 {
     protected string $baseUrl;
 
-    protected array $headers;
-
-    protected mixed $auth;
-
-    public function __construct(string $baseUrl, array $headers = [], mixed $auth = null)
+    public function __construct(string $baseUrl, protected array $headers = [], protected mixed $auth = null)
     {
         $this->baseUrl = rtrim($baseUrl, '/');
-        $this->headers = $headers;
-        $this->auth = $auth;
     }
 
     public function getData(UssdSession $session, array $filters = []): array

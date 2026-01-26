@@ -11,8 +11,6 @@ use Moffhub\Ussd\UssdSession;
 
 class PaginatedMenu extends UssdMenu
 {
-    protected mixed $dataProvider;
-
     protected string $emptyMessage;
 
     protected array $filters = [];
@@ -29,16 +27,15 @@ class PaginatedMenu extends UssdMenu
 
     protected string $title;
 
-    public function __construct(string $title, DataProviderInterface $dataProvider, array $options = [])
+    public function __construct(string $title, protected mixed $dataProvider, array $options = [])
     {
         parent::__construct($title);
         $this->title = $title;
-        $this->dataProvider = $dataProvider;
 
         $defaults = [
             'max_sms_length' => 160,
             'reserve_chars' => 50,
-            'item_formatter' => [$this, 'defaultItemFormatter'],
+            'item_formatter' => $this->defaultItemFormatter(...),
             'item_action' => null,
             'show_navigation_help' => true,
             'empty_message' => 'No items found.',
@@ -70,6 +67,7 @@ class PaginatedMenu extends UssdMenu
         return $this;
     }
 
+    #[\Override]
     public function setItemFormatter(?Closure $formatter): static
     {
         $this->itemFormatter = $formatter;
@@ -79,19 +77,20 @@ class PaginatedMenu extends UssdMenu
 
     protected function defaultItemFormatter(string $key, array|string $item, int $page = 1): string
     {
-        if (is_array($item)) {
-            if (isset($item['name'])) {
-                return "$key. {$item['name']}";
-            } elseif (isset($item['title'])) {
-                return "$key. {$item['title']}";
-            } elseif (isset($item['description'])) {
-                return "$key. {$item['description']}";
-            } else {
-                return "$key. ".json_encode($item);
-            }
+        if (! is_array($item)) {
+            return "$key. $item";
+        }
+        if (isset($item['name'])) {
+            return "$key. {$item['name']}";
+        }
+        if (isset($item['title'])) {
+            return "$key. {$item['title']}";
+        }
+        if (isset($item['description'])) {
+            return "$key. {$item['description']}";
         }
 
-        return "$key. $item";
+        return "$key. ".json_encode($item);
     }
 
     protected function processStep(string $input, int $step, UssdSession $session): UssdResponse
@@ -128,18 +127,20 @@ class PaginatedMenu extends UssdMenu
             'home' => $this->getNavigationCommand('home'),
             'default_menu' => $this->getNavigationCommand('default_menu'),
         ];
-
         if ($command === $navConfig['back']) {
             if ($this->goBack()) {
                 return UssdResponse::continue('Going back...');
             }
 
             return UssdResponse::end('Cannot go back further.');
-        } elseif ($command === $navConfig['home'] && $this->framework) {
+        }
+        if ($command === $navConfig['home'] && $this->framework) {
             $this->framework->navigateToMenu($this->config['default_menu']);
 
             return $this->framework->getMenu($this->config['default_menu'])->process('', $session);
-        } elseif ($command === $navConfig['next']) {
+        }
+
+        if ($command === $navConfig['next']) {
             if ($currentPage < $totalPages) {
                 return $this->showPage($currentPage + 1, $session);
             }
@@ -154,7 +155,7 @@ class PaginatedMenu extends UssdMenu
     {
         $allData = $this->getData($session);
 
-        if (empty($allData)) {
+        if ($allData === []) {
             return UssdResponse::continue($this->title."\n".$this->emptyMessage."\n".$this->getNavigationOptions());
         }
 
@@ -171,7 +172,7 @@ class PaginatedMenu extends UssdMenu
         $response .= "Page {$paginatedData['current_page']} of {$paginatedData['total_pages']}\n\n";
 
         foreach ($paginatedData['page_items'] as $key => $item) {
-            if ($this->itemFormatter) {
+            if ($this->itemFormatter instanceof \Closure) {
                 $response .= call_user_func($this->itemFormatter, $key, $item, $paginatedData['current_page'])."\n";
             } else {
                 $response .= $this->defaultItemFormatter($key, $item, $paginatedData['current_page'])."\n";
@@ -191,9 +192,11 @@ class PaginatedMenu extends UssdMenu
     {
         if ($this->dataProvider instanceof DataProviderInterface) {
             return $this->dataProvider->getData($session, $this->filters);
-        } elseif (is_callable($this->dataProvider)) {
+        }
+        if (is_callable($this->dataProvider)) {
             return call_user_func($this->dataProvider, $session, $this->filters);
-        } elseif (is_array($this->dataProvider)) {
+        }
+        if (is_array($this->dataProvider)) {
             return $this->dataProvider;
         }
 
@@ -226,14 +229,14 @@ class PaginatedMenu extends UssdMenu
         $pageNumber = 1;
 
         foreach ($allData as $key => $item) {
-            if ($this->itemFormatter) {
+            if ($this->itemFormatter instanceof \Closure) {
                 $formattedItem = call_user_func($this->itemFormatter, $key, $item, $pageNumber);
             } else {
                 $formattedItem = $this->defaultItemFormatter($key, $item, $pageNumber);
             }
-            $itemLength = strlen($formattedItem) + 1;
+            $itemLength = strlen((string) $formattedItem) + 1;
 
-            if ($currentPageLength + $itemLength > $availableLength && ! empty($currentPageItems)) {
+            if ($currentPageLength + $itemLength > $availableLength && $currentPageItems !== []) {
                 $pages[$pageNumber] = $currentPageItems;
                 $pageNumber++;
                 $currentPageItems = [];
@@ -244,7 +247,7 @@ class PaginatedMenu extends UssdMenu
             $currentPageLength += $itemLength;
         }
 
-        if (! empty($currentPageItems)) {
+        if ($currentPageItems !== []) {
             $pages[$pageNumber] = $currentPageItems;
         }
 
@@ -266,6 +269,7 @@ class PaginatedMenu extends UssdMenu
         return "Commands: {$navConfig['back']}=Back, {$navConfig['home']}=Home, {$navConfig['next']}=Next";
     }
 
+    #[\Override]
     protected function handleItemSelection(string $input, UssdSession $session): UssdResponse
     {
         if (! is_numeric($input)) {
@@ -299,6 +303,7 @@ class PaginatedMenu extends UssdMenu
         return UssdResponse::end('You selected: '.$itemDisplay);
     }
 
+    #[\Override]
     protected function showInitial(UssdSession $session): UssdResponse
     {
         $session->setMenuData([

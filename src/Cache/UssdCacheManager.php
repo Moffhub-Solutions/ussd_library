@@ -254,15 +254,11 @@ class UssdCacheManager
 
     protected function invalidateMenuCache(string $menuName): bool
     {
-        $pattern = "{$this->prefix}menu_$menuName*";
-
         return Cache::flush(); // In production, use more specific invalidation
     }
 
     protected function invalidateUserCache(string $userId): bool
     {
-        $pattern = "{$this->prefix}user_$userId*";
-
         return Cache::flush(); // In production, use more specific invalidation
     }
 

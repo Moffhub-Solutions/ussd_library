@@ -7,8 +7,6 @@ use Moffhub\Ussd\Menus\SimpleMenu;
 
 class MenuBuilder
 {
-    protected string $name;
-
     protected string $title = '';
 
     protected array $options = [];
@@ -19,10 +17,7 @@ class MenuBuilder
 
     protected array $config = [];
 
-    public function __construct(string $name)
-    {
-        $this->name = $name;
-    }
+    public function __construct(protected string $name) {}
 
     public function title(string $title): self
     {
@@ -73,11 +68,11 @@ class MenuBuilder
     {
         $menu = new SimpleMenu($this->title, $this->options, $this->actions);
 
-        if ($this->onComplete) {
+        if ($this->onComplete instanceof \Closure) {
             $menu->setOnComplete($this->onComplete);
         }
 
-        if (! empty($this->config)) {
+        if ($this->config !== []) {
             $menu->setConfig($this->config);
         }
 

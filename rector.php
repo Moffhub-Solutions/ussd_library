@@ -16,6 +16,8 @@ return RectorConfig::configure()
         // Skip vendor and cache directories
         __DIR__.'/vendor',
         __DIR__.'/.cache',
+        // Skip explicit nullable param type rector as we handle this ourselves
+        ExplicitNullableParamTypeRector::class,
     ])
     ->withSets([
         // PHP version level sets
@@ -28,11 +30,7 @@ return RectorConfig::configure()
         SetList::TYPE_DECLARATION,
         SetList::PRIVATIZATION,
     ])
-    ->withSkip([
-        // Skip explicit nullable param type rector as we handle this ourselves
-        ExplicitNullableParamTypeRector::class,
-    ])
-    ->withPhpSets(php84: true)
+    ->withPhpSets(php85: true)
     ->withPreparedSets(
         deadCode: true,
         codeQuality: true,

@@ -76,7 +76,7 @@ abstract class AbstractUssdProvider implements UssdProviderInterface
     {
         $phoneNumber = $this->getPhoneNumber($request);
 
-        return ! empty($phoneNumber);
+        return $phoneNumber !== '' && $phoneNumber !== '0';
     }
 
     /**

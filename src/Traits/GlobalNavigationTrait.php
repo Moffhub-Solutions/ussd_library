@@ -17,7 +17,7 @@ trait GlobalNavigationTrait
         }
 
         $message = trim($message);
-        if (empty($message)) {
+        if ($message === '' || $message === '0') {
             $message = 'Please make a selection:';
         }
 
@@ -56,15 +56,13 @@ trait GlobalNavigationTrait
             $navOptions[] = $homeText;
         }
 
-        if (empty($navOptions)) {
+        if ($navOptions === []) {
             return '';
         }
 
         $separator = $navConfig['separator'] ?? ' | ';
         $navString = implode($separator, $navOptions);
-
-        $showSeparator = $navConfig['show_separator'] ?? true;
-        if ($showSeparator && ! empty($navString)) {
+        if ($navString !== '' && $navString !== '0') {
             return "---\n".$navString;
         }
 
@@ -84,8 +82,11 @@ trait GlobalNavigationTrait
         if ($currentMenu === $defaultMenu) {
             return false;
         }
+        if ($session->canGoBack()) {
+            return true;
+        }
 
-        return $session->canGoBack() || $session->getStep() > 0;
+        return $session->getStep() > 0;
     }
 
     protected function shouldShowHome(UssdSession $session): bool
@@ -136,7 +137,7 @@ trait GlobalNavigationTrait
 
             return $currentMenu->display($session);
 
-        } catch (Exception $e) {
+        } catch (Exception) {
             return UssdResponse::continue('Navigation error. Please try again.');
         }
     }
@@ -154,13 +155,13 @@ trait GlobalNavigationTrait
 
             return $homeMenu->display($session);
 
-        } catch (Exception $e) {
+        } catch (Exception) {
             try {
                 $defaultMenu = $this->config['default_menu'] ?? 'main';
                 $homeMenu = $this->framework->getMenu($defaultMenu);
 
                 return $homeMenu->display($session);
-            } catch (Exception $e2) {
+            } catch (Exception) {
                 return UssdResponse::end('Service error. Please try again.');
             }
         }
@@ -177,7 +178,7 @@ trait GlobalNavigationTrait
 
             return true;
 
-        } catch (Exception $e) {
+        } catch (Exception) {
             return false;
         }
     }
@@ -191,7 +192,7 @@ trait GlobalNavigationTrait
 
             return $this->framework->goBack();
 
-        } catch (Exception $e) {
+        } catch (Exception) {
             return false;
         }
     }
@@ -220,18 +221,18 @@ trait GlobalNavigationTrait
 
         $globalNav = $this->buildNavigationText($session);
         if (! empty($globalNav)) {
-            if (! empty($navOptions)) {
+            if ($navOptions !== []) {
                 $navOptions[] = $globalNav;
             } else {
                 return $globalNav;
             }
         }
 
-        if (empty($navOptions)) {
+        if ($navOptions === []) {
             return '';
         }
 
-        $separator = $this->config['global_navigation']['separator'] ?? ' | ';
+        $this->config['global_navigation']['separator'] ?? ' | ';
 
         return implode("\n", $navOptions);
     }

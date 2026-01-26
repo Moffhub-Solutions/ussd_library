@@ -47,7 +47,7 @@ class SaveDataAction implements ActionInterface
 
             return UssdResponse::end($this->errorMessage);
 
-        } catch (Exception $e) {
+        } catch (Exception) {
             return UssdResponse::end($this->errorMessage);
         }
     }

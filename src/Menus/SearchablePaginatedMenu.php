@@ -22,6 +22,7 @@ class SearchablePaginatedMenu extends PaginatedMenu
         $this->searchFields = $options['search_fields'] ?? ['name', 'title', 'description'];
     }
 
+    #[\Override]
     protected function showInitial(UssdSession $session): UssdResponse
     {
         $session->setFormData('search_query', '');
@@ -29,6 +30,7 @@ class SearchablePaginatedMenu extends PaginatedMenu
         return parent::showInitial($session);
     }
 
+    #[\Override]
     protected function handleNavigationCommand(string $command, UssdSession $session): UssdResponse
     {
         $navConfig = $this->config['navigation'];
@@ -40,6 +42,7 @@ class SearchablePaginatedMenu extends PaginatedMenu
         return parent::handleNavigationCommand($command, $session);
     }
 
+    #[\Override]
     protected function processStep(string $input, int $step, UssdSession $session): UssdResponse
     {
         $searchQuery = $session->getFormData('search_query');
@@ -73,14 +76,15 @@ class SearchablePaginatedMenu extends PaginatedMenu
         return $response;
     }
 
+    #[\Override]
     protected function filterData(array $data, string $query): array
     {
         $query = strtolower(trim($query));
 
-        return array_filter($data, function ($item) use ($query) {
+        return array_filter($data, function ($item) use ($query): bool {
             if (is_array($item)) {
                 if (array_any($this->searchFields,
-                    fn ($field) => isset($item[$field]) && str_contains(strtolower($item[$field]), $query))) {
+                    fn ($field): bool => isset($item[$field]) && str_contains(strtolower((string) $item[$field]), $query))) {
                     return true;
                 }
             } else {
@@ -91,6 +95,7 @@ class SearchablePaginatedMenu extends PaginatedMenu
         });
     }
 
+    #[\Override]
     protected function getNavigationOptions(?int $currentPage = null, ?int $totalPages = null): string
     {
         $options = parent::getNavigationOptions($currentPage, $totalPages);

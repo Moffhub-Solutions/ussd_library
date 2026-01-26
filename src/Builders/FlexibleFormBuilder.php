@@ -7,19 +7,11 @@ use Moffhub\Ussd\Menus\UssdMenu;
 
 class FlexibleFormBuilder
 {
-    protected string $title;
-
     protected array $fields = [];
-
-    protected ?Closure $onComplete;
 
     protected array $config = [];
 
-    public function __construct(string $title, ?Closure $onComplete = null)
-    {
-        $this->title = $title;
-        $this->onComplete = $onComplete;
-    }
+    public function __construct(protected string $title, protected ?Closure $onComplete = null) {}
 
     public function textField(string $name, string $prompt, array $options = []): self
     {

@@ -21,11 +21,11 @@ Facade::setFacadeApplication($app);
 
 $app->instance('config', new ConfigRepository([]));
 
-$app->singleton('cache.store', fn () => new ArrayStore);
-$app->singleton('cache', fn ($app) => new CacheRepository($app->make('cache.store')));
+$app->singleton('cache.store', fn (): ArrayStore => new ArrayStore);
+$app->singleton('cache', fn ($app): CacheRepository => new CacheRepository($app->make('cache.store')));
 CacheFacade::swap($app['cache']);
 
-$app->singleton(LoggerInterface::class, fn () => new NullLogger);
+$app->singleton(LoggerInterface::class, fn (): NullLogger => new NullLogger);
 $app->singleton('log', fn ($app) => $app->make(LoggerInterface::class));
 LogFacade::swap($app['log']);
 

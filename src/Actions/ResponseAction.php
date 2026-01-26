@@ -11,19 +11,11 @@ use Moffhub\Ussd\UssdSession;
 
 class ResponseAction implements ActionInterface
 {
-    protected string $message;
-
-    protected string $type;
-
     /**
      * @param  string  $message  The response message
      * @param  string  $type  The response type (CON or END)
      */
-    public function __construct(string $message, string $type = UssdResponse::END)
-    {
-        $this->message = $message;
-        $this->type = $type;
-    }
+    public function __construct(protected string $message, protected string $type = UssdResponse::END) {}
 
     public function execute(?string $input, UssdSession $session, UssdFramework $framework): UssdResponse
     {

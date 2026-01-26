@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Moffhub\Ussd\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -18,11 +19,11 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $type whitelist|blacklist
  * @property string|null $reason
  * @property string|null $added_by
- * @property \Carbon\Carbon|null $expires_at
+ * @property Carbon|null $expires_at
  * @property bool $is_active
  * @property array|null $metadata
- * @property \Carbon\Carbon $created_at
- * @property \Carbon\Carbon $updated_at
+ * @property Carbon $created_at
+ * @property Carbon $updated_at
  */
 class UssdAccessList extends Model
 {
@@ -66,7 +67,7 @@ class UssdAccessList extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true)
-            ->where(function ($q) {
+            ->where(function ($q): void {
                 $q->whereNull('expires_at')
                     ->orWhere('expires_at', '>', now());
             });

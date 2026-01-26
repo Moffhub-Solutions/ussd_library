@@ -7,15 +7,7 @@ use Moffhub\Ussd\Menus\UssdMenu;
 
 class UnifiedMenuBuilder
 {
-    protected UssdMenu $menu;
-
-    protected UssdBuilder $builder;
-
-    public function __construct(UssdMenu $menu, UssdBuilder $builder)
-    {
-        $this->menu = $menu;
-        $this->builder = $builder;
-    }
+    public function __construct(protected UssdMenu $menu, protected UssdBuilder $builder) {}
 
     public function setType(string $type): self
     {

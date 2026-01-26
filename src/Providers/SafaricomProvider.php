@@ -47,8 +47,8 @@ class SafaricomProvider extends AbstractUssdProvider
 
         // Africa's Talking sends multiple inputs separated by *
         // We need the last input for processing
-        if (str_contains($text, '*')) {
-            $parts = explode('*', $text);
+        if (str_contains((string) $text, '*')) {
+            $parts = explode('*', (string) $text);
 
             return end($parts);
         }
@@ -69,7 +69,7 @@ class SafaricomProvider extends AbstractUssdProvider
             return [];
         }
 
-        return explode('*', $text);
+        return explode('*', (string) $text);
     }
 
     public function getSessionId(Request $request): ?string
@@ -90,6 +90,7 @@ class SafaricomProvider extends AbstractUssdProvider
         return $request->input('networkCode');
     }
 
+    #[\Override]
     public function validateRequest(Request $request): bool
     {
         $phoneNumber = $request->input('phoneNumber');

@@ -7,6 +7,7 @@ namespace Moffhub\Ussd\Menus;
 use Closure;
 use Exception;
 use Moffhub\Ussd\Helpers\FormField;
+use Moffhub\Ussd\UssdFramework;
 use Moffhub\Ussd\UssdResponse;
 use Moffhub\Ussd\UssdSession;
 
@@ -17,16 +18,14 @@ class FormMenu extends UssdMenu
     /** @var array<string, FormField> */
     protected array $fields = [];
 
-    protected ?Closure $onComplete;
-
-    public function __construct(string $title, array $fields = [], ?Closure $onComplete = null)
+    public function __construct(string $title, array $fields = [], protected ?Closure $onComplete = null)
     {
         parent::__construct($title);
         $this->title = $title;
         $this->setFields($fields);
-        $this->onComplete = $onComplete;
     }
 
+    #[\Override]
     public function setFields(array $fields): static
     {
         foreach ($fields as $name => $config) {
@@ -41,16 +40,17 @@ class FormMenu extends UssdMenu
         return $this;
     }
 
+    #[\Override]
     protected function showInitial(UssdSession $session): UssdResponse
     {
-        if (empty($this->fields)) {
+        if ($this->fields === []) {
             return UssdResponse::end('No fields defined for this form.');
         }
 
         $session->setStep(0);
 
         $firstField = reset($this->fields);
-        $message = $this->title ? $this->title."\n\n".$firstField->prompt : $firstField->prompt;
+        $message = $this->title !== '' && $this->title !== '0' ? $this->title."\n\n".$firstField->prompt : $firstField->prompt;
         $message = $this->addGlobalNavigation($message, $session);
 
         return UssdResponse::continue($message);
@@ -66,7 +66,7 @@ class FormMenu extends UssdMenu
 
         if (in_array($input, $navCommands)) {
             $navResponse = $this->processGlobalNavigation($input, $session);
-            if ($navResponse !== null) {
+            if ($navResponse instanceof UssdResponse) {
                 return $navResponse;
             }
         }
@@ -80,7 +80,7 @@ class FormMenu extends UssdMenu
         $fieldKey = $fieldKeys[$step];
         $field = $this->fields[$fieldKey];
 
-        if (empty($input)) {
+        if ($input === '' || $input === '0') {
             if ($step === 0) {
                 $message = $field->prompt;
                 $message = $this->addGlobalNavigation($message, $session);
@@ -117,6 +117,7 @@ class FormMenu extends UssdMenu
         return $this->moveToNextField($session);
     }
 
+    #[\Override]
     protected function moveToNextField(UssdSession $session): UssdResponse
     {
         $currentStep = $session->getStep();
@@ -138,6 +139,7 @@ class FormMenu extends UssdMenu
         return UssdResponse::continue($message);
     }
 
+    #[\Override]
     protected function handlePaginatedField(FormField $field, string $input, UssdSession $session): UssdResponse
     {
         try {
@@ -154,7 +156,7 @@ class FormMenu extends UssdMenu
 
                 return UssdResponse::continue($message);
             }
-            if (! $framework) {
+            if (! $framework instanceof UssdFramework) {
                 throw new Exception('Framework is not set for paginated menu.');
             }
 
@@ -187,7 +189,7 @@ class FormMenu extends UssdMenu
 
             return $paginatedMenu->process($input, $session);
 
-        } catch (Exception $e) {
+        } catch (Exception) {
             $message = "Error processing field options. Please try again.\n\n".$field->prompt;
             $message = $this->addGlobalNavigation($message, $session);
 
@@ -195,6 +197,7 @@ class FormMenu extends UssdMenu
         }
     }
 
+    #[\Override]
     protected function completeForm(UssdSession $session): UssdResponse
     {
         try {
@@ -206,11 +209,12 @@ class FormMenu extends UssdMenu
 
             return UssdResponse::end('Form completed successfully!');
 
-        } catch (Exception $e) {
+        } catch (Exception) {
             return UssdResponse::end('Form completion error. Please try again.');
         }
     }
 
+    #[\Override]
     protected function handleBackNavigation(UssdSession $session): ?UssdResponse
     {
         $currentStep = $session->getStep();

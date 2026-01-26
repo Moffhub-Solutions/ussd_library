@@ -11,14 +11,12 @@ class ConditionalMenu extends UssdMenu
 {
     protected array $conditions = [];
 
-    public mixed $defaultMenu;
-
-    public function __construct(mixed $defaultMenu = null)
+    public function __construct(public mixed $defaultMenu = null)
     {
         parent::__construct('Conditional Menu');
-        $this->defaultMenu = $defaultMenu;
     }
 
+    #[\Override]
     public function addCondition(callable $condition, mixed $action): self
     {
         $this->conditions[] = ['condition' => $condition, 'action' => $action];
@@ -26,6 +24,7 @@ class ConditionalMenu extends UssdMenu
         return $this;
     }
 
+    #[\Override]
     protected function showInitial(UssdSession $session): UssdResponse
     {
         $menu = $this->resolveMenu($session);

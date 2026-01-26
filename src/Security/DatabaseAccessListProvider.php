@@ -36,7 +36,7 @@ class DatabaseAccessListProvider implements AccessListProviderInterface
             return Cache::remember(
                 $this->cachePrefix.'whitelist_'.$phoneNumber,
                 $this->cacheTtl,
-                fn () => UssdAccessList::isWhitelisted($phoneNumber)
+                fn (): bool => UssdAccessList::isWhitelisted($phoneNumber)
             );
         }
 
@@ -49,7 +49,7 @@ class DatabaseAccessListProvider implements AccessListProviderInterface
             return Cache::remember(
                 $this->cachePrefix.'blacklist_'.$phoneNumber,
                 $this->cacheTtl,
-                fn () => UssdAccessList::isBlacklisted($phoneNumber)
+                fn (): bool => UssdAccessList::isBlacklisted($phoneNumber)
             );
         }
 
@@ -108,7 +108,7 @@ class DatabaseAccessListProvider implements AccessListProviderInterface
             return Cache::remember(
                 $this->cachePrefix.'whitelist_all',
                 $this->cacheTtl,
-                fn () => UssdAccessList::getWhitelistedNumbers()
+                fn (): array => UssdAccessList::getWhitelistedNumbers()
             );
         }
 
@@ -121,7 +121,7 @@ class DatabaseAccessListProvider implements AccessListProviderInterface
             return Cache::remember(
                 $this->cachePrefix.'blacklist_all',
                 $this->cacheTtl,
-                fn () => UssdAccessList::getBlacklistedNumbers()
+                fn (): array => UssdAccessList::getBlacklistedNumbers()
             );
         }
 

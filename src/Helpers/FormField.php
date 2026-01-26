@@ -8,10 +8,6 @@ use Moffhub\Ussd\Interfaces\ValidatorInterface;
 
 class FormField
 {
-    public string $name;
-
-    public string $prompt;
-
     protected string $type;
 
     protected array $config;
@@ -22,10 +18,8 @@ class FormField
 
     protected array $dependencies = [];
 
-    public function __construct(string $name, string $prompt, array $config = [])
+    public function __construct(public string $name, public string $prompt, array $config = [])
     {
-        $this->name = $name;
-        $this->prompt = $prompt;
         $this->type = $config['type'] ?? 'text';
         $this->config = $config;
 
@@ -96,7 +90,7 @@ class FormField
 
     public function isVisible(array $formData = []): bool
     {
-        if (empty($this->dependencies)) {
+        if ($this->dependencies === []) {
             return true;
         }
 

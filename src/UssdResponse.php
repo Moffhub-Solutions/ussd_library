@@ -15,10 +15,8 @@ namespace Moffhub\Ussd;
  * Response Format:
  * - CON <message>: Continue session, wait for user input
  * - END <message>: Terminate session
- *
- * @package Moffhub\Ussd
  */
-class UssdResponse
+class UssdResponse implements \Stringable
 {
     /** @var string Response type to continue session */
     public const string CONTINUE = 'CON';
@@ -32,24 +30,16 @@ class UssdResponse
     /** @var string The response message content */
     protected string $message;
 
-    /** @var array<string, mixed> Response metadata */
-    protected array $metadata = [];
-
-    /** @var string Response type (CON or END) */
-    protected string $type;
-
     /**
      * Create a new USSD response.
      *
-     * @param string $message The response message
-     * @param string $type Response type (CONTINUE or END)
-     * @param array<string, mixed> $metadata Additional metadata
+     * @param  string  $message  The response message
+     * @param  string  $type  Response type (CONTINUE or END)
+     * @param  array<string, mixed>  $metadata  Additional metadata
      */
-    public function __construct(string $message, string $type = self::CONTINUE, array $metadata = [])
+    public function __construct(string $message, protected string $type = self::CONTINUE, protected array $metadata = [])
     {
         $this->message = $this->sanitizeMessage($message);
-        $this->type = $type;
-        $this->metadata = $metadata;
     }
 
     protected function sanitizeMessage(string $message): string
@@ -59,12 +49,12 @@ class UssdResponse
         $message = str_replace(["\r\n", "\r"], "\n", $message);
 
         $lines = explode("\n", $message);
-        $lines = array_map('trim', $lines);
+        $lines = array_map(trim(...), $lines);
 
-        while (! empty($lines) && empty($lines[0])) {
+        while ($lines !== [] && empty($lines[0])) {
             array_shift($lines);
         }
-        while (! empty($lines) && empty($lines[count($lines) - 1])) {
+        while ($lines !== [] && empty($lines[count($lines) - 1])) {
             array_pop($lines);
         }
 
@@ -138,7 +128,7 @@ class UssdResponse
     {
         $message = $title;
 
-        if (! empty($options)) {
+        if ($options !== []) {
             $message .= "\n\n";
             foreach ($options as $key => $value) {
                 $message .= "$key. $value\n";
@@ -147,7 +137,7 @@ class UssdResponse
 
         $response = self::continue($message);
 
-        if (! empty($navigationOptions)) {
+        if ($navigationOptions !== []) {
             $response->addNavigation($navigationOptions);
         }
 
@@ -161,7 +151,7 @@ class UssdResponse
 
     public function addNavigation(array $navigationOptions): self
     {
-        if (! empty($navigationOptions)) {
+        if ($navigationOptions !== []) {
             $navText = "\n\n".implode("\n", $navigationOptions);
             $this->appendMessage($navText);
         }

@@ -58,7 +58,7 @@ class UssdHelpers
         $reference = $prefix;
 
         for ($i = 0; $i < $length; $i++) {
-            $reference .= $chars[rand(0, strlen($chars) - 1)];
+            $reference .= $chars[random_int(0, strlen($chars) - 1)];
         }
 
         return $reference;

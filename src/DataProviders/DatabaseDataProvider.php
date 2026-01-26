@@ -9,15 +9,7 @@ use Moffhub\Ussd\UssdSession;
 
 class DatabaseDataProvider implements DataProviderInterface
 {
-    protected mixed $model;
-
-    protected mixed $query;
-
-    public function __construct(mixed $model, mixed $query = null)
-    {
-        $this->model = $model;
-        $this->query = $query;
-    }
+    public function __construct(protected mixed $model, protected mixed $query = null) {}
 
     public function getData(UssdSession $session, array $filters = []): array
     {
@@ -51,7 +43,7 @@ class DatabaseDataProvider implements DataProviderInterface
     {
         $builder = $this->getBaseQuery();
 
-        $builder->where(function ($q) use ($query, $fields) {
+        $builder->where(function ($q) use ($query, $fields): void {
             foreach ($fields as $field) {
                 $q->orWhere($field, 'LIKE', "%$query%");
             }

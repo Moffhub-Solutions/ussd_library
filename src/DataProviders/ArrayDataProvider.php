@@ -9,24 +9,20 @@ use Moffhub\Ussd\UssdSession;
 
 class ArrayDataProvider implements DataProviderInterface
 {
-    protected array $data;
-
-    public function __construct(array $data)
-    {
-        $this->data = $data;
-    }
+    public function __construct(protected array $data) {}
 
     public function getData(UssdSession $session, array $filters = []): array
     {
         $data = $this->data;
 
         foreach ($filters as $field => $value) {
-            if ($field === 'page' || $field === 'per_page') {
+            if ($field === 'page') {
                 continue;
             }
-            $data = array_filter($data, function ($item) use ($field, $value): bool {
-                return is_array($item) && array_key_exists($field, $item) && $item[$field] == $value;
-            });
+            if ($field === 'per_page') {
+                continue;
+            }
+            $data = array_filter($data, fn ($item): bool => is_array($item) && array_key_exists($field, $item) && $item[$field] == $value);
         }
 
         $data = array_values($data);

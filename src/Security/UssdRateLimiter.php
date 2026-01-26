@@ -89,7 +89,7 @@ class UssdRateLimiter
         ?string $addedBy = null,
         ?DateTimeInterface $expiresAt = null
     ): bool {
-        if ($this->accessListProvider) {
+        if ($this->accessListProvider instanceof AccessListProviderInterface) {
             return $this->accessListProvider->addToWhitelist($phoneNumber, $reason, $addedBy, $expiresAt);
         }
 
@@ -110,7 +110,7 @@ class UssdRateLimiter
         ?string $addedBy = null,
         ?DateTimeInterface $expiresAt = null
     ): bool {
-        if ($this->accessListProvider) {
+        if ($this->accessListProvider instanceof AccessListProviderInterface) {
             return $this->accessListProvider->addToBlacklist($phoneNumber, $reason, $addedBy, $expiresAt);
         }
 
@@ -127,7 +127,7 @@ class UssdRateLimiter
      */
     public function removeFromWhitelist(string $phoneNumber): bool
     {
-        if ($this->accessListProvider) {
+        if ($this->accessListProvider instanceof AccessListProviderInterface) {
             return $this->accessListProvider->removeFromWhitelist($phoneNumber);
         }
 
@@ -143,7 +143,7 @@ class UssdRateLimiter
      */
     public function removeFromBlacklist(string $phoneNumber): bool
     {
-        if ($this->accessListProvider) {
+        if ($this->accessListProvider instanceof AccessListProviderInterface) {
             return $this->accessListProvider->removeFromBlacklist($phoneNumber);
         }
 
@@ -224,9 +224,7 @@ class UssdRateLimiter
         $requests[] = $now->timestamp;
 
         $cutoff = $now->subDay()->timestamp;
-        $requests = array_filter($requests, function ($timestamp) use ($cutoff) {
-            return $timestamp > $cutoff;
-        });
+        $requests = array_filter($requests, fn ($timestamp) => $timestamp > $cutoff);
 
         Cache::put($key, $requests, 86400);
 
@@ -235,7 +233,7 @@ class UssdRateLimiter
 
     protected function saveRateLimitToDatabase(string $phoneNumber, string $action, array $requests): void
     {
-        if ($this->databaseService) {
+        if ($this->databaseService instanceof UssdDatabaseService) {
             $this->databaseService->saveRateLimit($phoneNumber, $action, $requests);
 
             return;
@@ -266,9 +264,7 @@ class UssdRateLimiter
 
         $cutoff = Carbon::now()->subSeconds($seconds)->timestamp;
 
-        return count(array_filter($requests, function ($timestamp) use ($cutoff) {
-            return $timestamp > $cutoff;
-        }));
+        return count(array_filter($requests, fn ($timestamp) => $timestamp > $cutoff));
     }
 
     protected function blockUser(string $phoneNumber): void
@@ -278,7 +274,7 @@ class UssdRateLimiter
 
         Cache::put($key, $blockedUntil->timestamp, $this->config['blocked_duration']);
 
-        if ($this->databaseService) {
+        if ($this->databaseService instanceof UssdDatabaseService) {
             $this->databaseService->saveRateLimit($phoneNumber, 'request', [], $blockedUntil);
         } else {
             try {
@@ -331,7 +327,7 @@ class UssdRateLimiter
         }
 
         // Check database provider if available
-        if ($this->accessListProvider) {
+        if ($this->accessListProvider instanceof AccessListProviderInterface) {
             return $this->accessListProvider->isWhitelisted($phoneNumber);
         }
 
@@ -346,7 +342,7 @@ class UssdRateLimiter
         }
 
         // Check database provider if available
-        if ($this->accessListProvider) {
+        if ($this->accessListProvider instanceof AccessListProviderInterface) {
             return $this->accessListProvider->isBlacklisted($phoneNumber);
         }
 

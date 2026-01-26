@@ -2,7 +2,6 @@
 
 namespace Moffhub\Ussd;
 
-use Moffhub\Ussd\Security\UssdRateLimiter;
 use BackedEnum;
 use Carbon\Carbon;
 use Exception;
@@ -16,6 +15,7 @@ use Moffhub\Ussd\Interfaces\UssdProviderInterface;
 use Moffhub\Ussd\Providers\ProviderFactory;
 use Moffhub\Ussd\Security\UssdAuditLogger;
 use Moffhub\Ussd\Security\UssdInputSanitizer;
+use Moffhub\Ussd\Security\UssdRateLimiter;
 use Moffhub\Ussd\Services\UssdDatabaseService;
 
 /**
@@ -36,8 +36,6 @@ use Moffhub\Ussd\Services\UssdDatabaseService;
  * $framework->registerMenu('main', new SimpleMenu('Welcome', [...]));
  * $response = $framework->handle($request);
  * ```
- *
- * @package Moffhub\Ussd
  */
 class UssdFramework
 {
@@ -153,7 +151,7 @@ class UssdFramework
 
         if ($this->config['security']['rate_limiting']) {
             $this->rateLimiter = new UssdRateLimiter;
-            if ($this->databaseService) {
+            if ($this->databaseService instanceof UssdDatabaseService) {
                 $this->rateLimiter->setDatabaseService($this->databaseService);
             }
         }
@@ -164,14 +162,14 @@ class UssdFramework
 
         if ($this->config['security']['audit_logging']) {
             $this->auditLogger = new UssdAuditLogger;
-            if ($this->databaseService) {
+            if ($this->databaseService instanceof UssdDatabaseService) {
                 $this->auditLogger->setDatabaseService($this->databaseService);
             }
         }
 
         if ($this->config['analytics']['enabled']) {
             $this->analytics = new UssdAnalytics($this->config['analytics']);
-            if ($this->databaseService) {
+            if ($this->databaseService instanceof UssdDatabaseService) {
                 $this->analytics->setDatabaseService($this->databaseService);
             }
         }
@@ -179,19 +177,19 @@ class UssdFramework
 
     protected function registerDefaultSessionHandlers(): void
     {
-        $this->sessionValidators['timeout'] = function ($sessionData) {
+        $this->sessionValidators['timeout'] = function (array $sessionData) {
             $updatedAt = Carbon::parse($sessionData['updated_at']);
 
             return $updatedAt->addSeconds($this->config['session_timeout'])->isAfter(Carbon::now());
         };
 
-        $this->sessionValidators['grace_period'] = function ($sessionData) {
+        $this->sessionValidators['grace_period'] = function (array $sessionData) {
             $updatedAt = Carbon::parse($sessionData['updated_at']);
 
             return $updatedAt->addSeconds($this->config['grace_period'])->isAfter(Carbon::now());
         };
 
-        $this->sessionRecoveryHandlers['form_recovery'] = function ($sessionData) {
+        $this->sessionRecoveryHandlers['form_recovery'] = function (array $sessionData): ?array {
             if (! empty($sessionData['form_data'])) {
                 $completionPercentage = $this->calculateFormCompletionPercentage($sessionData);
                 if ($completionPercentage > 50) {
@@ -207,7 +205,7 @@ class UssdFramework
             return null;
         };
 
-        $this->sessionRecoveryHandlers['transaction_recovery'] = function ($sessionData) {
+        $this->sessionRecoveryHandlers['transaction_recovery'] = function (array $sessionData): ?array {
             if (isset($sessionData['transaction_context'])) {
                 $transactionData = $sessionData['transaction_context'];
                 if (isset($transactionData['status']) && $transactionData['status'] === 'pending') {
@@ -291,11 +289,11 @@ class UssdFramework
         return [
             'status' => 'healthy',
             'components' => [
-                'cache' => $this->cacheManager ? 'enabled' : 'disabled',
-                'rate_limiter' => $this->rateLimiter ? 'enabled' : 'disabled',
-                'input_sanitizer' => $this->inputSanitizer ? 'enabled' : 'disabled',
-                'audit_logger' => $this->auditLogger ? 'enabled' : 'disabled',
-                'analytics' => $this->analytics ? 'enabled' : 'disabled',
+                'cache' => $this->cacheManager instanceof UssdCacheManager ? 'enabled' : 'disabled',
+                'rate_limiter' => $this->rateLimiter instanceof UssdRateLimiter ? 'enabled' : 'disabled',
+                'input_sanitizer' => $this->inputSanitizer instanceof UssdInputSanitizer ? 'enabled' : 'disabled',
+                'audit_logger' => $this->auditLogger instanceof UssdAuditLogger ? 'enabled' : 'disabled',
+                'analytics' => $this->analytics instanceof UssdAnalytics ? 'enabled' : 'disabled',
             ],
             'session_management' => [
                 'continuation_enabled' => $this->sessionContinuationEnabled,
@@ -338,7 +336,7 @@ class UssdFramework
                     UssdResponse::END);
             }
 
-            if ($this->inputSanitizer) {
+            if ($this->inputSanitizer instanceof UssdInputSanitizer) {
                 $sanitizationResult = $this->inputSanitizer->sanitize($userInput, 'menu_option');
                 if (! $sanitizationResult['valid'] && $sanitizationResult['suspicious']) {
                     $this->auditLogger?->logSecurity('suspicious_input', $phoneNumber, [
@@ -361,7 +359,7 @@ class UssdFramework
             $this->executeHooks('before_process', [$request, $this->session]);
 
             $continuationResponse = $this->handleSessionContinuation();
-            if ($continuationResponse) {
+            if ($continuationResponse instanceof UssdResponse) {
                 return $continuationResponse;
             }
 
@@ -384,7 +382,7 @@ class UssdFramework
 
             $this->session->save();
 
-            if ($this->databaseService) {
+            if ($this->databaseService instanceof UssdDatabaseService) {
                 $this->saveSessionToDatabase($response);
             }
 
@@ -422,7 +420,7 @@ class UssdFramework
 
     protected function extractPhoneNumber(Request $request): string
     {
-        if ($this->provider) {
+        if ($this->provider instanceof UssdProviderInterface) {
             return $this->provider->getPhoneNumber($request);
         }
 
@@ -434,7 +432,7 @@ class UssdFramework
      */
     protected function getProvider(Request $request): UssdProviderInterface
     {
-        if ($this->provider) {
+        if ($this->provider instanceof UssdProviderInterface) {
             return $this->provider;
         }
 
@@ -464,7 +462,7 @@ class UssdFramework
      */
     public function formatProviderResponse(UssdResponse $response): string
     {
-        if ($this->provider) {
+        if ($this->provider instanceof UssdProviderInterface) {
             return $this->provider->formatResponse($response);
         }
 
@@ -487,8 +485,8 @@ class UssdFramework
 
     protected function handleExistingSession(array $sessionData, Request $request): UssdSession
     {
-        $now = Carbon::now();
-        $updatedAt = Carbon::parse($sessionData['updated_at']);
+        Carbon::now();
+        Carbon::parse($sessionData['updated_at']);
 
         if ($this->sessionValidators['timeout']($sessionData)) {
             return $this->createSessionFromData($sessionData, $request, 'active');
@@ -530,7 +528,7 @@ class UssdFramework
 
     protected function attemptIntelligentRecovery(array $sessionData, Request $request): ?array
     {
-        foreach ($this->sessionRecoveryHandlers as $recoveryType => $handler) {
+        foreach ($this->sessionRecoveryHandlers as $handler) {
             $context = $handler($sessionData, $request, $this->config);
             if ($context) {
                 return $context;
@@ -630,8 +628,8 @@ class UssdFramework
     /**
      * Get a registered menu by name.
      *
-     * @param string|MenuNameInterface|BackedEnum $name Menu name or enum
-     * @return UssdMenuInterface
+     * @param  string|MenuNameInterface|BackedEnum  $name  Menu name or enum
+     *
      * @throws Exception If menu is not found
      */
     public function getMenu(string|MenuNameInterface|BackedEnum $name): UssdMenuInterface
@@ -648,7 +646,7 @@ class UssdFramework
     /**
      * Check if a menu is registered.
      *
-     * @param string|MenuNameInterface|BackedEnum $name Menu name or enum
+     * @param  string|MenuNameInterface|BackedEnum  $name  Menu name or enum
      */
     public function hasMenu(string|MenuNameInterface|BackedEnum $name): bool
     {
@@ -658,7 +656,7 @@ class UssdFramework
     /**
      * Resolve menu name from string or enum.
      *
-     * @param string|MenuNameInterface|BackedEnum $name Menu name or enum
+     * @param  string|MenuNameInterface|BackedEnum  $name  Menu name or enum
      */
     protected function resolveMenuName(string|MenuNameInterface|BackedEnum $name): string
     {
@@ -710,21 +708,21 @@ class UssdFramework
             return $this->processContinuationChoice($text);
         }
 
-        if (empty($text)) {
+        if ($text === '' || $text === '0') {
             $currentMenu = $this->getCurrentMenu();
 
             return $currentMenu->process('', $session);
         }
 
         $text = trim($text);
-        if (empty($text)) {
+        if ($text === '' || $text === '0') {
             $currentMenu = $this->getCurrentMenu();
 
             return $currentMenu->process('', $session);
         }
 
         $globalNavResponse = $this->handleGlobalNavigation($text, $session);
-        if ($globalNavResponse) {
+        if ($globalNavResponse instanceof UssdResponse) {
             return $globalNavResponse;
         }
 
@@ -791,8 +789,8 @@ class UssdFramework
     /**
      * Navigate to a menu.
      *
-     * @param string|MenuNameInterface|BackedEnum $menuName Menu name or enum
-     * @param array<string, mixed> $data Data to pass to the menu
+     * @param  string|MenuNameInterface|BackedEnum  $menuName  Menu name or enum
+     * @param  array<string, mixed>  $data  Data to pass to the menu
      */
     public function navigateToMenu(string|MenuNameInterface|BackedEnum $menuName, array $data = []): void
     {
@@ -812,8 +810,8 @@ class UssdFramework
     /**
      * Navigate to a menu and return its display response.
      *
-     * @param string|MenuNameInterface|BackedEnum $menuName Menu name or enum
-     * @param array<string, mixed> $data Data to pass to the menu
+     * @param  string|MenuNameInterface|BackedEnum  $menuName  Menu name or enum
+     * @param  array<string, mixed>  $data  Data to pass to the menu
      */
     public function navigateToMenuWithResponse(string|MenuNameInterface|BackedEnum $menuName, array $data = []): UssdResponse
     {
@@ -1011,11 +1009,7 @@ class UssdFramework
 
     public function migrateSession(string $fromPhoneNumber, string $toPhoneNumber): bool
     {
-        if (! $this->config['enable_session_migration']) {
-            return true;
-        }
-
-        return false;
+        return ! $this->config['enable_session_migration'];
     }
 
     public function registerMenus(array $menus): static
@@ -1030,8 +1024,8 @@ class UssdFramework
     /**
      * Register a menu with the framework.
      *
-     * @param string|MenuNameInterface|BackedEnum $name Menu name or enum
-     * @param UssdMenuInterface $menu The menu instance
+     * @param  string|MenuNameInterface|BackedEnum  $name  Menu name or enum
+     * @param  UssdMenuInterface  $menu  The menu instance
      */
     public function registerMenu(string|MenuNameInterface|BackedEnum $name, UssdMenuInterface $menu): static
     {

@@ -75,7 +75,7 @@ class UssdInputSanitizer
 
     protected function basicSanitization(string $input): string
     {
-        $input = trim((string) $input);
+        $input = trim($input);
 
         if (strlen($input) > $this->config['max_input_length']) {
             $input = substr($input, 0, $this->config['max_input_length']);
@@ -120,7 +120,7 @@ class UssdInputSanitizer
         }
 
         return [
-            'valid' => empty($reasons),
+            'valid' => $reasons === [],
             'reasons' => $reasons,
         ];
     }
@@ -139,11 +139,11 @@ class UssdInputSanitizer
     {
         $input = preg_replace('/[^0-9+]/', '', $input) ?: '';
 
-        if (preg_match('/^0([7][0-9]{8})$/', $input, $matches)) {
+        if (preg_match('/^0([7]\d{8})$/', $input, $matches)) {
             $input = '254'.$matches[1];
-        } elseif (preg_match('/^\+254([7][0-9]{8})$/', $input, $matches)) {
+        } elseif (preg_match('/^\+254([7]\d{8})$/', $input, $matches)) {
             $input = '254'.$matches[1];
-        } elseif (preg_match('/^254([7][0-9]{8})$/', $input)) {
+        } elseif (preg_match('/^254([7]\d{8})$/', $input)) {
             // Already in correct format
         }
 
@@ -154,12 +154,12 @@ class UssdInputSanitizer
     {
         $reasons = [];
 
-        if (! preg_match('/^254[7][0-9]{8}$/', $input)) {
+        if (! preg_match('/^254[7]\d{8}$/', $input)) {
             $reasons[] = 'Invalid phone number format';
         }
 
         return [
-            'valid' => empty($reasons),
+            'valid' => $reasons === [],
             'reasons' => $reasons,
         ];
     }
@@ -189,7 +189,7 @@ class UssdInputSanitizer
         }
 
         return [
-            'valid' => empty($reasons),
+            'valid' => $reasons === [],
             'reasons' => $reasons,
         ];
     }
@@ -211,7 +211,7 @@ class UssdInputSanitizer
         $sanitized = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $sanitized) ?: '';
 
         if (strlen($sanitized) > 100) {
-            $sanitized = substr($sanitized, 0, 100);
+            return substr($sanitized, 0, 100);
         }
 
         return $sanitized;
@@ -221,7 +221,7 @@ class UssdInputSanitizer
     {
         $reasons = [];
 
-        $input = is_scalar($input) ? trim((string) $input) : '';
+        $input = is_scalar($input) ? trim($input) : '';
 
         if (! preg_match('/^[a-zA-Z0-9\*\#\s\-\.]+$/', $input)) {
             $reasons[] = 'Contains invalid characters for USSD input';
@@ -237,12 +237,12 @@ class UssdInputSanitizer
 
         Log::debug('Input validation result', [
             'input' => $input,
-            'valid' => empty($reasons),
+            'valid' => $reasons === [],
             'reasons' => $reasons,
         ]);
 
         return [
-            'valid' => empty($reasons),
+            'valid' => $reasons === [],
             'reasons' => $reasons,
         ];
     }
@@ -299,7 +299,7 @@ class UssdInputSanitizer
     {
         return array_any(
             $this->patterns,
-            fn ($pattern, $key) => (bool) preg_match($pattern, $input)
+            fn ($pattern, $key): bool => (bool) preg_match($pattern, $input)
         );
     }
 }

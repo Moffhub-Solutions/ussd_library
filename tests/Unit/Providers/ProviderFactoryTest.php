@@ -6,7 +6,6 @@ namespace Moffhub\Ussd\Tests\Unit\Providers;
 
 use Illuminate\Http\Request;
 use InvalidArgumentException;
-use Moffhub\Ussd\Interfaces\UssdProviderInterface;
 use Moffhub\Ussd\Providers\AirtelProvider;
 use Moffhub\Ussd\Providers\GenericProvider;
 use Moffhub\Ussd\Providers\MtnProvider;

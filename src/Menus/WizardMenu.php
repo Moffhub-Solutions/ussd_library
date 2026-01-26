@@ -12,18 +12,12 @@ class WizardMenu extends UssdMenu
 {
     protected string $title;
 
-    protected mixed $steps = [];
-
     protected int $currentStepIndex = 0;
 
-    protected ?Closure $onComplete;
-
-    public function __construct(string $title, array $steps = [], ?Closure $onComplete = null)
+    public function __construct(string $title, protected mixed $steps = [], protected ?Closure $onComplete = null)
     {
         parent::__construct($title);
         $this->title = $title;
-        $this->steps = $steps;
-        $this->onComplete = $onComplete;
     }
 
     public function addStep(string $name, UssdMenu $menu): self
@@ -33,6 +27,7 @@ class WizardMenu extends UssdMenu
         return $this;
     }
 
+    #[\Override]
     protected function showInitial(UssdSession $session): UssdResponse
     {
         $session->setMenuData(['current_step' => 0, 'completed_steps' => []]);
@@ -76,6 +71,7 @@ class WizardMenu extends UssdMenu
         return $response;
     }
 
+    #[\Override]
     protected function completeWizard(UssdSession $session): UssdResponse
     {
         if ($this->onComplete && $this->framework) {

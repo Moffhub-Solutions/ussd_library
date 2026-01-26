@@ -79,10 +79,11 @@ class AirtelProvider extends AbstractUssdProvider
             ?? $request->input('SERVICE_CODE');
     }
 
+    #[\Override]
     public function validateRequest(Request $request): bool
     {
         $phoneNumber = $this->getPhoneNumber($request);
 
-        return ! empty($phoneNumber);
+        return $phoneNumber !== '' && $phoneNumber !== '0';
     }
 }
