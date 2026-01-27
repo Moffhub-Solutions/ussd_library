@@ -217,17 +217,18 @@ class UssdMenu implements UssdMenuInterface
     {
         $step = $session->getStep();
 
+        // Check global navigation first (home/back) before form-specific handling
+        $navResponse = $this->handleGlobalNavigation($input, $session);
+        if ($navResponse instanceof UssdResponse) {
+            return $navResponse;
+        }
+
         if (($input === '' || $input === '0') && $step === 0) {
             return $this->showInitial($session);
         }
 
         if (($input === '' || $input === '0') && $step > 0) {
             return $this->handleEmptyInput($step, $session);
-        }
-
-        $navResponse = $this->handleGlobalNavigation($input, $session);
-        if ($navResponse instanceof UssdResponse) {
-            return $navResponse;
         }
 
         return match ($this->type) {
