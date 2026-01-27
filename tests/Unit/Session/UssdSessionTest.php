@@ -299,6 +299,10 @@ class UssdSessionTest extends TestCase
 
         $recoveryContext = $this->session->getRecoveryContext();
 
+        $this->assertNotNull($recoveryContext);
+        $this->assertArrayHasKey('type', $recoveryContext);
+        $this->assertArrayHasKey('menu', $recoveryContext);
+        $this->assertArrayHasKey('completion_percentage', $recoveryContext);
         $this->assertEquals('form', $recoveryContext['type']);
         $this->assertEquals('register', $recoveryContext['menu']);
         $this->assertEquals(50, $recoveryContext['completion_percentage']);
@@ -328,7 +332,7 @@ class UssdSessionTest extends TestCase
 
         $data = $this->session->getData();
 
-        $this->assertIsArray($data);
+        $this->assertArrayHasKey('current_menu', $data);
         $this->assertEquals('main', $data['current_menu']);
     }
 
@@ -362,11 +366,12 @@ class UssdSessionTest extends TestCase
         $this->assertFalse($this->session->isInGracePeriod());
     }
 
-    public function test_should_continue_returns_boolean(): void
+    public function test_should_continue_in_grace_period(): void
     {
+        $this->session->setStatus('grace_period');
         $result = $this->session->shouldContinue();
 
-        $this->assertIsBool($result);
+        $this->assertTrue($result);
     }
 
     // ==================== Menu History ====================
@@ -376,11 +381,11 @@ class UssdSessionTest extends TestCase
         $this->assertFalse($this->session->canGoBack());
     }
 
-    public function test_go_back_returns_boolean(): void
+    public function test_go_back_returns_false_without_history(): void
     {
         $result = $this->session->goBack();
 
-        $this->assertIsBool($result);
+        $this->assertFalse($result);
     }
 
     // ==================== Data Access with Dot Notation ====================
@@ -408,11 +413,11 @@ class UssdSessionTest extends TestCase
 
     // ==================== Interaction History ====================
 
-    public function test_get_interaction_history(): void
+    public function test_get_interaction_history_initially_empty(): void
     {
         $history = $this->session->getInteractionHistory();
 
-        $this->assertIsArray($history);
+        $this->assertEmpty($history);
     }
 
     public function test_add_interaction_history(): void
@@ -451,8 +456,8 @@ class UssdSessionTest extends TestCase
 
         $snapshots = $this->session->getContextSnapshots();
 
-        // Snapshots are stored as array, verify it's not empty
-        $this->assertIsArray($snapshots);
+        $this->assertNotEmpty($snapshots);
+        $this->assertContains('before_payment', $snapshots);
     }
 
     public function test_restore_from_snapshot(): void
@@ -496,7 +501,7 @@ class UssdSessionTest extends TestCase
 
         $responseTimeMetrics = $this->session->getPerformanceMetrics('response_time');
 
-        $this->assertIsArray($responseTimeMetrics);
+        $this->assertNotEmpty($responseTimeMetrics);
     }
 
     // ==================== Session Duration ====================
@@ -505,7 +510,8 @@ class UssdSessionTest extends TestCase
     {
         $duration = $this->session->getSessionDuration();
 
-        $this->assertIsFloat($duration);
+        // Duration should be close to 0 for a newly created session (allowing for timing precision)
+        $this->assertLessThan(1.0, abs($duration));
     }
 
     public function test_get_time_since_last_access(): void
@@ -513,25 +519,27 @@ class UssdSessionTest extends TestCase
         $this->session->updateLastAccess();
         $timeSince = $this->session->getTimeSinceLastAccess();
 
-        $this->assertIsFloat($timeSince);
         // Time since can be very small or slightly negative due to timing
-        $this->assertLessThan(1, abs($timeSince));
+        $this->assertLessThan(1.0, abs($timeSince));
     }
 
-    public function test_is_stale(): void
+    public function test_is_stale_for_new_session(): void
     {
         $isStale = $this->session->isStale(1800);
 
-        $this->assertIsBool($isStale);
+        $this->assertFalse($isStale);
     }
 
     // ==================== Session Existence ====================
 
-    public function test_exists_returns_boolean(): void
+    public function test_exists_checks_cache(): void
     {
+        // A newly created session that hasn't been saved to cache won't exist in cache
         $exists = $this->session->exists();
 
-        $this->assertIsBool($exists);
+        // The exists method checks cache, which may or may not have the session
+        // This test verifies the method returns a deterministic result
+        $this->assertFalse($exists);
     }
 
     // ==================== Edge Cases ====================
@@ -542,8 +550,8 @@ class UssdSessionTest extends TestCase
 
         $items = $this->session->getFormData('selected_items');
 
-        $this->assertIsArray($items);
         $this->assertCount(3, $items);
+        $this->assertEquals([1, 2, 3], $items);
     }
 
     public function test_form_data_with_nested_array(): void
