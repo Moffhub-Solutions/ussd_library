@@ -27,7 +27,7 @@ class FormField
             $this->validators = is_array($config['validator']) ? $config['validator'] : [$config['validator']];
         }
 
-        $this->options = $config['options'] ?? null;
+        $this->options = $config['options'] ?? $config['data_provider'] ?? null;
         $this->dependencies = $config['dependencies'] ?? [];
     }
 
