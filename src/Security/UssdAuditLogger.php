@@ -227,6 +227,12 @@ class UssdAuditLogger
     protected function storeInDatabase(array $logData): void
     {
         try {
+            // Map severity to valid enum values: low, medium, high
+            $severity = $logData['severity'] ?? 'low';
+            if (! in_array($severity, ['low', 'medium', 'high'])) {
+                $severity = 'low';
+            }
+
             DB::table($this->config['table_name'])->insert([
                 'timestamp' => Carbon::parse($logData['timestamp']),
                 'action' => $logData['action'],
@@ -236,7 +242,7 @@ class UssdAuditLogger
                 'ip_address' => $logData['ip_address'],
                 'details' => json_encode($logData['details']),
                 'metadata' => json_encode($logData['metadata']),
-                'severity' => $logData['severity'] ?? 'info',
+                'severity' => $severity,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);

@@ -240,14 +240,27 @@ class UssdRateLimiter
         }
 
         try {
-            DB::table('ussd_rate_limits')->updateOrInsert(
-                ['phone_number' => $phoneNumber, 'action' => $action],
-                [
-                    'request_timestamps' => json_encode($requests),
-                    'updated_at' => now(),
-                    'created_at' => DB::raw('COALESCE(created_at, NOW())'),
-                ]
-            );
+            $exists = DB::table('ussd_rate_limits')
+                ->where('phone_number', $phoneNumber)
+                ->where('action', $action)
+                ->exists();
+
+            $data = [
+                'request_timestamps' => json_encode($requests),
+                'updated_at' => now(),
+            ];
+
+            if ($exists) {
+                DB::table('ussd_rate_limits')
+                    ->where('phone_number', $phoneNumber)
+                    ->where('action', $action)
+                    ->update($data);
+            } else {
+                $data['phone_number'] = $phoneNumber;
+                $data['action'] = $action;
+                $data['created_at'] = now();
+                DB::table('ussd_rate_limits')->insert($data);
+            }
         } catch (\Exception $e) {
             Log::error('Failed to save rate limit data to database', [
                 'error' => $e->getMessage(),
@@ -278,16 +291,33 @@ class UssdRateLimiter
             $this->databaseService->saveRateLimit($phoneNumber, 'request', [], $blockedUntil);
         } else {
             try {
-                DB::table('ussd_rate_limits')->updateOrInsert(
-                    ['phone_number' => $phoneNumber, 'action' => 'request'],
-                    [
+                $exists = DB::table('ussd_rate_limits')
+                    ->where('phone_number', $phoneNumber)
+                    ->where('action', 'request')
+                    ->exists();
+
+                if ($exists) {
+                    DB::table('ussd_rate_limits')
+                        ->where('phone_number', $phoneNumber)
+                        ->where('action', 'request')
+                        ->update([
+                            'blocked_until' => $blockedUntil,
+                            'violation_count' => DB::raw('violation_count + 1'),
+                            'last_violation' => now(),
+                            'updated_at' => now(),
+                        ]);
+                } else {
+                    DB::table('ussd_rate_limits')->insert([
+                        'phone_number' => $phoneNumber,
+                        'action' => 'request',
+                        'request_timestamps' => json_encode([]),
                         'blocked_until' => $blockedUntil,
-                        'violation_count' => DB::raw('COALESCE(violation_count, 0) + 1'),
+                        'violation_count' => 1,
                         'last_violation' => now(),
                         'updated_at' => now(),
-                        'created_at' => DB::raw('COALESCE(created_at, NOW())'),
-                    ]
-                );
+                        'created_at' => now(),
+                    ]);
+                }
             } catch (\Exception $e) {
                 Log::error('Failed to save rate limit block to database', [
                     'error' => $e->getMessage(),

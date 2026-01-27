@@ -915,6 +915,12 @@ class UssdMenu implements UssdMenuInterface
     protected function showPaginatedFieldOptions(FormField $field, UssdSession $session): UssdResponse
     {
         $options = $field->getOptions($session);
+
+        // Ensure options is an array
+        if (! is_array($options)) {
+            $options = [];
+        }
+
         $searchQuery = $session->getFormData('_search_query', '');
 
         if (! empty($searchQuery)) {
@@ -972,6 +978,12 @@ class UssdMenu implements UssdMenuInterface
     protected function handleFieldOptionSelection(FormField $field, string $input, UssdSession $session): UssdResponse
     {
         $options = $field->getOptions($session);
+
+        // Ensure options is an array
+        if (! is_array($options)) {
+            $options = [];
+        }
+
         $searchQuery = $session->getFormData('_search_query', '');
 
         if (! empty($searchQuery)) {

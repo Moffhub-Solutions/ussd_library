@@ -458,21 +458,31 @@ class UssdAnalytics
             $totalInteractions = $sessionData['access_count'] ?? 0;
             $startedAt = isset($sessionData['created_at']) ? Carbon::parse($sessionData['created_at']) : now();
 
-            DB::table('ussd_user_sessions')->updateOrInsert(
-                ['session_id' => $sessionId],
-                [
-                    'phone_number' => $phoneNumber,
-                    'current_menu' => $sessionData['current_menu'] ?? null,
-                    'session_data' => json_encode($sessionData),
-                    'started_at' => $startedAt,
-                    'last_activity' => now(),
-                    'total_interactions' => $totalInteractions,
-                    'user_journey' => json_encode($userJourney),
-                    'completed' => $this->isSessionCompleted($sessionData),
-                    'updated_at' => now(),
-                    'created_at' => DB::raw('COALESCE(created_at, NOW())'),
-                ]
-            );
+            $exists = DB::table('ussd_user_sessions')
+                ->where('session_id', $sessionId)
+                ->exists();
+
+            $data = [
+                'phone_number' => $phoneNumber,
+                'current_menu' => $sessionData['current_menu'] ?? null,
+                'session_data' => json_encode($sessionData),
+                'started_at' => $startedAt,
+                'last_activity' => now(),
+                'total_interactions' => $totalInteractions,
+                'user_journey' => json_encode($userJourney),
+                'completed' => $this->isSessionCompleted($sessionData),
+                'updated_at' => now(),
+            ];
+
+            if ($exists) {
+                DB::table('ussd_user_sessions')
+                    ->where('session_id', $sessionId)
+                    ->update($data);
+            } else {
+                $data['session_id'] = $sessionId;
+                $data['created_at'] = now();
+                DB::table('ussd_user_sessions')->insert($data);
+            }
         } catch (\Exception $e) {
             Log::error('Failed to save user session to database', [
                 'error' => $e->getMessage(),

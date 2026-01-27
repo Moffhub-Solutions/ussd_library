@@ -38,24 +38,39 @@ class UssdDatabaseService
         }
 
         try {
+            $hashedPhone = $this->hashPhoneNumber($phoneNumber);
+            $exists = DB::table('ussd_rate_limits')
+                ->where('phone_number', $hashedPhone)
+                ->where('action', $action)
+                ->exists();
+
             $data = [
-                'phone_number' => $this->hashPhoneNumber($phoneNumber),
+                'phone_number' => $hashedPhone,
                 'action' => $action,
                 'request_timestamps' => json_encode($requestTimestamps),
                 'updated_at' => now(),
-                'created_at' => DB::raw('COALESCE(created_at, NOW())'),
             ];
 
             if ($blockedUntil instanceof Carbon) {
                 $data['blocked_until'] = $blockedUntil;
-                $data['violation_count'] = DB::raw('COALESCE(violation_count, 0) + 1');
                 $data['last_violation'] = now();
             }
 
-            DB::table('ussd_rate_limits')->updateOrInsert(
-                ['phone_number' => $this->hashPhoneNumber($phoneNumber), 'action' => $action],
-                $data
-            );
+            if ($exists) {
+                if ($blockedUntil instanceof Carbon) {
+                    $data['violation_count'] = DB::raw('violation_count + 1');
+                }
+                DB::table('ussd_rate_limits')
+                    ->where('phone_number', $hashedPhone)
+                    ->where('action', $action)
+                    ->update($data);
+            } else {
+                $data['created_at'] = now();
+                if ($blockedUntil instanceof Carbon) {
+                    $data['violation_count'] = 1;
+                }
+                DB::table('ussd_rate_limits')->insert($data);
+            }
 
             return true;
         } catch (Exception $e) {
@@ -125,22 +140,33 @@ class UssdDatabaseService
         try {
             $userJourney = $this->extractUserJourneyFromSessionData($sessionData);
             $totalInteractions = $sessionData['access_count'] ?? 0;
+            $hashedPhone = $this->hashPhoneNumber($phoneNumber);
 
-            DB::table('ussd_user_sessions')->updateOrInsert(
-                ['session_id' => $sessionId],
-                [
-                    'phone_number' => $this->hashPhoneNumber($phoneNumber),
-                    'current_menu' => $currentMenu,
-                    'session_data' => json_encode($sessionData),
-                    'started_at' => $startedAt ?? now(),
-                    'last_activity' => now(),
-                    'total_interactions' => $totalInteractions,
-                    'user_journey' => json_encode($userJourney),
-                    'completed' => $completed,
-                    'updated_at' => now(),
-                    'created_at' => DB::raw('COALESCE(created_at, NOW())'),
-                ]
-            );
+            $exists = DB::table('ussd_user_sessions')
+                ->where('session_id', $sessionId)
+                ->exists();
+
+            $data = [
+                'phone_number' => $hashedPhone,
+                'current_menu' => $currentMenu,
+                'session_data' => json_encode($sessionData),
+                'started_at' => $startedAt ?? now(),
+                'last_activity' => now(),
+                'total_interactions' => $totalInteractions,
+                'user_journey' => json_encode($userJourney),
+                'completed' => $completed,
+                'updated_at' => now(),
+            ];
+
+            if ($exists) {
+                DB::table('ussd_user_sessions')
+                    ->where('session_id', $sessionId)
+                    ->update($data);
+            } else {
+                $data['session_id'] = $sessionId;
+                $data['created_at'] = now();
+                DB::table('ussd_user_sessions')->insert($data);
+            }
 
             return true;
         } catch (Exception $e) {
