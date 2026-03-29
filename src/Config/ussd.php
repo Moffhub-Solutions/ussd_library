@@ -39,6 +39,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Session Limits
+    |--------------------------------------------------------------------------
+    */
+
+    'session' => [
+        // Session timeout in seconds (used when persisting to cache)
+        'timeout' => env('USSD_SESSION_TIMEOUT', 300),
+
+        // Maximum number of interaction history entries to keep
+        'max_history' => env('USSD_SESSION_MAX_HISTORY', 50),
+
+        // Maximum number of context snapshots to keep
+        'max_snapshots' => env('USSD_SESSION_MAX_SNAPSHOTS', 10),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Navigation Configuration
     |--------------------------------------------------------------------------
     */
@@ -115,6 +132,13 @@ return [
 
         // Strict mode - reject suspicious input instead of sanitizing
         'strict_mode' => env('USSD_SECURITY_STRICT_MODE', false),
+
+        // Encrypt session data at rest (form data, context variables)
+        'encrypt_session_data' => env('USSD_ENCRYPT_SESSION_DATA', false),
+
+        // Fields to encrypt in session data (dot notation supported)
+        // Example: ['form_data.pin', 'form_data.account_number', 'user_data.secret']
+        'encrypted_fields' => [],
     ],
 
     /*
@@ -153,6 +177,9 @@ return [
         'track_performance' => env('USSD_ANALYTICS_TRACK_PERFORMANCE', true),
         'buffer_size' => env('USSD_ANALYTICS_BUFFER_SIZE', 100),
         'flush_interval' => env('USSD_ANALYTICS_FLUSH_INTERVAL', 60),
+
+        // Flush strategy: 'sync' (immediate), 'async' (queued job), 'shutdown' (on process exit)
+        'flush_strategy' => env('USSD_ANALYTICS_FLUSH_STRATEGY', 'sync'),
     ],
 
     /*
@@ -184,6 +211,9 @@ return [
 
         // Anonymize phone numbers for privacy (hash or mask)
         'anonymize_phone_numbers' => env('USSD_DB_ANONYMIZE_PHONES', true),
+
+        // Model namespace — override to use your own models instead of the package defaults
+        'model_namespace' => env('USSD_MODEL_NAMESPACE', 'Moffhub\\Ussd\\Models'),
     ],
 
     /*
@@ -204,6 +234,120 @@ return [
 
         // Maximum message length (carrier-specific)
         'max_message_length' => env('USSD_MAX_MESSAGE_LENGTH', 182),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Signature Verification
+    |--------------------------------------------------------------------------
+    |
+    | Enable HMAC signature verification for incoming provider requests.
+    | When enabled, requests without valid signatures will be rejected.
+    |
+    */
+
+    'verify_signatures' => env('USSD_VERIFY_SIGNATURES', false),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Provider Secrets
+    |--------------------------------------------------------------------------
+    |
+    | Per-provider secrets used for signature verification.
+    |
+    */
+
+    'providers' => [
+        'safaricom' => [
+            'secret' => env('USSD_SAFARICOM_SECRET'),
+        ],
+        'airtel' => [
+            'secret' => env('USSD_AIRTEL_SECRET'),
+        ],
+        'mtn' => [
+            'secret' => env('USSD_MTN_SECRET'),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Circuit Breaker Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Protects external API calls from cascading failures.
+    |
+    */
+
+    'circuit_breaker' => [
+        // Number of consecutive failures before opening the circuit
+        'threshold' => env('USSD_CIRCUIT_BREAKER_THRESHOLD', 5),
+
+        // Seconds to wait before allowing a test request (half-open)
+        'cooldown_seconds' => env('USSD_CIRCUIT_BREAKER_COOLDOWN', 60),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Localization Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Multi-language support for USSD menus and messages.
+    |
+    */
+
+    'localization' => [
+        // Default locale for USSD messages
+        'default_locale' => env('USSD_DEFAULT_LOCALE', 'en'),
+
+        // List of supported locales
+        'supported_locales' => ['en'],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Gateway Authentication
+    |--------------------------------------------------------------------------
+    |
+    | Configure authentication for incoming USSD gateway requests.
+    | The UssdAuthentication middleware checks these settings.
+    |
+    */
+
+    'gateway_authentication' => [
+        'enabled' => env('USSD_GATEWAY_AUTH_ENABLED', false),
+
+        // Allowed gateway IPs (empty array = all IPs allowed when enabled)
+        'allowed_ips' => env('USSD_GATEWAY_ALLOWED_IPS')
+            ? explode(',', (string) env('USSD_GATEWAY_ALLOWED_IPS'))
+            : [],
+
+        // HMAC signature verification header name
+        'signature_header' => env('USSD_GATEWAY_SIGNATURE_HEADER'),
+
+        // HMAC signature secret
+        'signature_secret' => env('USSD_GATEWAY_SIGNATURE_SECRET'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Logging Configuration
+    |--------------------------------------------------------------------------
+    */
+
+    /*
+    |--------------------------------------------------------------------------
+    | Admin API Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configure the admin REST API for access management,
+    | rate limit overrides, and session monitoring.
+    |
+    */
+
+    'admin' => [
+        'enabled' => env('USSD_ADMIN_ENABLED', true),
+        'prefix' => env('USSD_ADMIN_PREFIX', 'ussd/admin'),
+        'middleware' => ['api', 'auth'],
     ],
 
     /*

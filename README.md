@@ -652,6 +652,214 @@ $framework = new UssdFramework([
 ]);
 ```
 
+## Facade
+
+Use the `Ussd` facade for convenient access:
+
+```php
+use Moffhub\Ussd\Facades\Ussd;
+
+$response = Ussd::handle($request);
+```
+
+## Internationalization (i18n)
+
+Built-in multi-language support:
+
+```php
+// Using the helper function
+$message = __ussd('errors.invalid_option');
+$message = __ussd('navigation.page_info', ['current' => '1', 'total' => '5']);
+$message = __ussd('validation.min_length', ['min' => '3'], 'sw');
+
+// Per-session language selection
+use Moffhub\Ussd\Services\TranslationService;
+
+$translation = app(TranslationService::class);
+$translation->setSessionLocale($session, 'sw');
+$message = $translation->translateForSession('navigation.back', $session);
+```
+
+Publish and customize language files:
+
+```bash
+php artisan vendor:publish --tag=ussd-lang
+```
+
+Configure in `config/ussd.php`:
+
+```php
+'localization' => [
+    'default_locale' => 'en',
+    'supported_locales' => ['en', 'sw', 'fr'],
+],
+```
+
+## Signature Verification
+
+Verify incoming provider requests using HMAC signatures:
+
+```env
+USSD_VERIFY_SIGNATURES=true
+USSD_SAFARICOM_SECRET=your-api-key
+USSD_AIRTEL_SECRET=your-callback-token
+USSD_MTN_SECRET=your-hmac-secret
+```
+
+## Circuit Breaker
+
+Protect external API calls from cascading failures:
+
+```env
+USSD_CIRCUIT_BREAKER_THRESHOLD=5
+USSD_CIRCUIT_BREAKER_COOLDOWN=60
+```
+
+The circuit breaker is automatically integrated into `ApiDataProvider`. It supports three states:
+- **Closed**: All requests pass through normally
+- **Open**: Requests return fallback data (after threshold failures)
+- **Half-open**: One test request allowed after cooldown period
+
+## Session Encryption
+
+Encrypt sensitive session data at rest:
+
+```env
+USSD_ENCRYPT_SESSION_DATA=true
+```
+
+Configure which fields to encrypt in `config/ussd.php`:
+
+```php
+'security' => [
+    'encrypt_session_data' => true,
+    'encrypted_fields' => ['form_data.pin', 'form_data.account_number'],
+],
+```
+
+## Events
+
+The framework dispatches Laravel events at key lifecycle points:
+
+| Event | Payload |
+|-------|---------|
+| `SessionStarted` | sessionId, phone, provider |
+| `SessionResumed` | sessionId, phone, wasRecovered |
+| `SessionEnded` | sessionId, phone, duration, menusVisited |
+| `SessionExpired` | sessionId, phone, lastMenu |
+| `MenuEntered` | sessionId, menuName, fromMenu |
+| `MenuExited` | sessionId, menuName, toMenu, selection |
+| `FormSubmitted` | sessionId, menuName, formData |
+| `InputReceived` | sessionId, menuName, rawInput |
+| `NavigationPerformed` | sessionId, action |
+
+Listen to events:
+
+```php
+use Moffhub\Ussd\Events\FormSubmitted;
+
+Event::listen(FormSubmitted::class, function (FormSubmitted $event) {
+    ProcessRegistration::dispatch($event->formData);
+});
+```
+
+## Artisan Commands
+
+```bash
+# Clean up expired sessions
+php artisan ussd:cleanup-sessions --older-than=24h
+php artisan ussd:cleanup-sessions --dry-run
+
+# List active sessions
+php artisan ussd:list-sessions
+php artisan ussd:list-sessions --provider=safaricom
+
+# Manage whitelist/blacklist
+php artisan ussd:manage-access add --type=whitelist --phone=+254712345678
+php artisan ussd:manage-access list --type=blacklist
+
+# Health check
+php artisan ussd:health
+```
+
+## Middleware
+
+Two middleware are registered automatically:
+
+```php
+// Gateway authentication (IP + signature verification)
+Route::post('/ussd', [UssdController::class, 'handle'])->middleware('ussd.auth');
+
+// Per-phone rate limiting
+Route::post('/ussd', [UssdController::class, 'handle'])->middleware('ussd.rate-limit');
+
+// Combined
+Route::post('/ussd', [UssdController::class, 'handle'])->middleware(['ussd.auth', 'ussd.rate-limit']);
+```
+
+## Production Deployment
+
+See [docs/PRODUCTION.md](docs/PRODUCTION.md) for a detailed production deployment guide including:
+
+- Deployment checklist
+- Cache driver selection (Redis recommended)
+- Database migration verification
+- Provider credential setup
+- Rate limit tuning
+- Session timeout configuration
+- Analytics retention policy
+- Performance tuning guide
+- Troubleshooting guide
+
+### Quick Checklist
+
+- [ ] Set cache driver to Redis: `CACHE_DRIVER=redis`
+- [ ] Run migrations: `php artisan migrate`
+- [ ] Configure provider secrets in `.env`
+- [ ] Enable signature verification: `USSD_VERIFY_SIGNATURES=true`
+- [ ] Enable session encryption if handling PINs: `USSD_ENCRYPT_SESSION_DATA=true`
+- [ ] Schedule session cleanup: `ussd:cleanup-sessions`
+- [ ] Start queue worker for async analytics: `USSD_ANALYTICS_FLUSH_STRATEGY=async`
+- [ ] Configure gateway IPs: `USSD_GATEWAY_AUTH_ENABLED=true`
+- [ ] Verify health: `php artisan ussd:health`
+
+## Local Development
+
+### USSD Simulator
+
+Test your USSD flows interactively from the command line without needing a real gateway:
+
+```bash
+php artisan ussd:simulate
+```
+
+This starts an interactive CLI session that simulates a USSD flow. It sends requests to your registered menus, displays responses, and prompts for input just like a real USSD session.
+
+#### Options
+
+```bash
+# Use a specific phone number
+php artisan ussd:simulate --phone=254712345678
+
+# Use a specific provider adapter (safaricom, airtel, mtn, generic)
+php artisan ussd:simulate --provider=safaricom
+
+# Use a specific service code
+php artisan ussd:simulate --service-code=*456#
+
+# Combine options
+php artisan ussd:simulate --phone=254712345678 --provider=safaricom --service-code=*456#
+```
+
+#### How It Works
+
+1. The simulator generates a unique session ID and sends an initial request to `UssdFramework::handle()`
+2. The response is displayed in the terminal with `[CON]` (continue) or `[END]` (end) indicators
+3. If the response is `CON`, you are prompted to enter input
+4. The simulator sends a follow-up request with your input
+5. This loop continues until the response is `END` or you type `exit`
+6. A session summary is displayed at the end with total steps and duration
+
 ## Testing
 
 Run the test suite:

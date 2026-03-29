@@ -4,16 +4,49 @@ declare(strict_types=1);
 
 namespace Moffhub\Ussd\DataProviders;
 
+use Illuminate\Support\Facades\Log;
 use Moffhub\Ussd\Interfaces\DataProviderInterface;
+use Moffhub\Ussd\Services\CircuitBreaker;
 use Moffhub\Ussd\UssdSession;
 
 class ApiDataProvider implements DataProviderInterface
 {
     protected string $baseUrl;
 
+    protected ?CircuitBreaker $circuitBreaker = null;
+
+    /** @var array<string, mixed> */
+    protected array $fallbackData = [];
+
     public function __construct(string $baseUrl, protected array $headers = [], protected mixed $auth = null)
     {
         $this->baseUrl = rtrim($baseUrl, '/');
+
+        if (config('ussd.circuit_breaker.threshold')) {
+            $this->circuitBreaker = new CircuitBreaker;
+        }
+    }
+
+    /**
+     * Set a circuit breaker instance.
+     */
+    public function setCircuitBreaker(CircuitBreaker $circuitBreaker): self
+    {
+        $this->circuitBreaker = $circuitBreaker;
+
+        return $this;
+    }
+
+    /**
+     * Set fallback data to return when the circuit is open.
+     *
+     * @param  array<string, mixed>  $fallbackData
+     */
+    public function setFallbackData(array $fallbackData): self
+    {
+        $this->fallbackData = $fallbackData;
+
+        return $this;
     }
 
     public function getData(UssdSession $session, array $filters = []): array
@@ -91,6 +124,14 @@ class ApiDataProvider implements DataProviderInterface
 
     protected function makeRequest(string $url): mixed
     {
+        if ($this->circuitBreaker instanceof CircuitBreaker && ! $this->circuitBreaker->isAvailable($url)) {
+            Log::warning('ApiDataProvider: Circuit breaker is open, returning fallback data', [
+                'url' => $url,
+            ]);
+
+            return $this->fallbackData;
+        }
+
         $context = stream_context_create([
             'http' => [
                 'method' => 'GET',
@@ -99,10 +140,18 @@ class ApiDataProvider implements DataProviderInterface
             ],
         ]);
 
-        $response = file_get_contents($url, false, $context);
+        $response = @file_get_contents($url, false, $context);
 
         if ($response === false) {
-            return [];
+            if ($this->circuitBreaker instanceof CircuitBreaker) {
+                $this->circuitBreaker->recordFailure($url);
+            }
+
+            return $this->fallbackData !== [] ? $this->fallbackData : [];
+        }
+
+        if ($this->circuitBreaker instanceof CircuitBreaker) {
+            $this->circuitBreaker->recordSuccess($url);
         }
 
         return json_decode($response, true) ?: [];
