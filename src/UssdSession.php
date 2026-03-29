@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Moffhub\Ussd\Security\SessionEncryptor;
 
 /**
  * USSD Session Manager.
@@ -47,6 +48,8 @@ class UssdSession
 
     protected array $sessionMetrics = [];
 
+    protected ?SessionEncryptor $encryptor = null;
+
     /**
      * Create a new USSD session.
      *
@@ -74,12 +77,20 @@ class UssdSession
         $this->loadOrInitializeSession();
     }
 
+    /**
+     * Set a session encryptor for encrypting/decrypting session data.
+     */
+    public function setEncryptor(SessionEncryptor $encryptor): void
+    {
+        $this->encryptor = $encryptor;
+    }
+
     protected function loadOrInitializeSession(): void
     {
         $existingData = Cache::get($this->cacheKey);
 
         if ($existingData && is_array($existingData)) {
-            $this->data = $existingData;
+            $this->data = $this->decryptData($existingData);
             $this->initializeEnhancedData();
             Log::debug('UnifiedUssdSession: Loaded existing session', [
                 'phone' => $this->phoneNumber,
@@ -555,8 +566,9 @@ class UssdSession
             'step' => $this->getStep(),
         ];
 
-        if (count($history) > 50) {
-            $history = array_slice($history, -50);
+        $maxHistory = (int) ($this->config['session']['max_history'] ?? $this->config['max_history'] ?? 50);
+        if (count($history) > $maxHistory) {
+            $history = array_slice($history, -$maxHistory);
         }
 
         $this->set('interaction_history', $history);
@@ -584,8 +596,9 @@ class UssdSession
             'timestamp' => Carbon::now()->toISOString(),
         ];
 
-        if (count($snapshots) > 10) {
-            $snapshots = array_slice($snapshots, -10, null, true);
+        $maxSnapshots = (int) ($this->config['session']['max_snapshots'] ?? $this->config['max_snapshots'] ?? 10);
+        if (count($snapshots) > $maxSnapshots) {
+            $snapshots = array_slice($snapshots, -$maxSnapshots, null, true);
         }
 
         $this->set('context_snapshots', $snapshots);
@@ -752,8 +765,9 @@ class UssdSession
             $this->data['updated_at'] = Carbon::now();
             $this->data['last_access'] = Carbon::now();
 
-            $timeout = $this->config['session_timeout'] ?? 300;
-            Cache::put($this->cacheKey, $this->data, $timeout);
+            $timeout = (int) ($this->config['session']['timeout'] ?? $this->config['session_timeout'] ?? 300);
+            $dataToSave = $this->encryptData($this->data);
+            Cache::put($this->cacheKey, $dataToSave, $timeout);
 
             $this->saveToUserSessionsTable();
 
@@ -839,6 +853,30 @@ class UssdSession
         }
 
         return $journey;
+    }
+
+    /**
+     * Encrypt session data if an encryptor is set.
+     */
+    protected function encryptData(array $data): array
+    {
+        if ($this->encryptor instanceof SessionEncryptor) {
+            return $this->encryptor->encrypt($data);
+        }
+
+        return $data;
+    }
+
+    /**
+     * Decrypt session data if an encryptor is set.
+     */
+    protected function decryptData(array $data): array
+    {
+        if ($this->encryptor instanceof SessionEncryptor) {
+            return $this->encryptor->decrypt($data);
+        }
+
+        return $data;
     }
 
     public function destroy(): void

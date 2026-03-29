@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Models;
+namespace Moffhub\Ussd\Models;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Moffhub\Ussd\Database\Factories\UssdMenuStatisticFactory;
 
 /**
  * @property int $id
@@ -20,4 +22,13 @@ use Illuminate\Database\Eloquent\Model;
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
-class UssdMenuStatistic extends Model {}
+class UssdMenuStatistic extends Model
+{
+    /** @use HasFactory<UssdMenuStatisticFactory> */
+    use HasFactory;
+
+    protected static function newFactory(): UssdMenuStatisticFactory
+    {
+        return UssdMenuStatisticFactory::new();
+    }
+}

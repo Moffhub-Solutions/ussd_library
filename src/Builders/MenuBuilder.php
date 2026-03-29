@@ -69,7 +69,7 @@ class MenuBuilder
     {
         $menu = new SimpleMenu($this->title, $this->options, $this->actions);
 
-        if ($this->onComplete instanceof \Closure) {
+        if ($this->onComplete instanceof Closure) {
             $menu->setOnComplete($this->onComplete);
         }
 

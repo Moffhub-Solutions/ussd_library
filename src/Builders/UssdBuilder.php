@@ -38,7 +38,7 @@ class UssdBuilder
 
     public function menu(string $name, ?Closure $callback = null): static
     {
-        if ($callback instanceof \Closure) {
+        if ($callback instanceof Closure) {
             $ussdMenu = new UssdMenu($name);
             $menuBuilder = new UnifiedMenuBuilder($ussdMenu, $this);
             $callback($menuBuilder);
@@ -84,7 +84,7 @@ class UssdBuilder
     {
         $formBuilder = new FlexibleFormBuilder($title, $onComplete);
 
-        if ($callback instanceof \Closure) {
+        if ($callback instanceof Closure) {
             $callback($formBuilder);
         }
 

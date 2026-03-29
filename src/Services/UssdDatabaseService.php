@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Moffhub\Ussd\Services;
 
-use App\Models\UssdMenuStatistic;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Moffhub\Ussd\Models\UssdMenuStatistic;
 
 class UssdDatabaseService
 {

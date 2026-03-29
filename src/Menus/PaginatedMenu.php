@@ -172,7 +172,7 @@ class PaginatedMenu extends UssdMenu
         $response .= "Page {$paginatedData['current_page']} of {$paginatedData['total_pages']}\n\n";
 
         foreach ($paginatedData['page_items'] as $key => $item) {
-            if ($this->itemFormatter instanceof \Closure) {
+            if ($this->itemFormatter instanceof Closure) {
                 $response .= call_user_func($this->itemFormatter, $key, $item, $paginatedData['current_page'])."\n";
             } else {
                 $response .= $this->defaultItemFormatter($key, $item, $paginatedData['current_page'])."\n";
@@ -229,7 +229,7 @@ class PaginatedMenu extends UssdMenu
         $pageNumber = 1;
 
         foreach ($allData as $key => $item) {
-            if ($this->itemFormatter instanceof \Closure) {
+            if ($this->itemFormatter instanceof Closure) {
                 $formattedItem = call_user_func($this->itemFormatter, $key, $item, $pageNumber);
             } else {
                 $formattedItem = $this->defaultItemFormatter($key, $item, $pageNumber);
