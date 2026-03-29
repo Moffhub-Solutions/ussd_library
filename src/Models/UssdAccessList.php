@@ -6,7 +6,9 @@ namespace Moffhub\Ussd\Models;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Moffhub\Ussd\Database\Factories\UssdAccessListFactory;
 
 /**
  * USSD Access List Model.
@@ -29,7 +31,15 @@ use Illuminate\Database\Eloquent\Model;
  */
 class UssdAccessList extends Model
 {
+    /** @use HasFactory<UssdAccessListFactory> */
+    use HasFactory;
+
     protected $table = 'ussd_access_lists';
+
+    protected static function newFactory(): UssdAccessListFactory
+    {
+        return UssdAccessListFactory::new();
+    }
 
     protected $fillable = [
         'phone_number',

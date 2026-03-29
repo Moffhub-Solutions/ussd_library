@@ -303,7 +303,7 @@ class UssdInputSanitizer
     {
         return array_any(
             $this->patterns,
-            fn ($pattern, $key): bool => (bool) preg_match($pattern, $input)
+            fn (string $pattern): bool => (bool) preg_match($pattern, $input)
         );
     }
 }

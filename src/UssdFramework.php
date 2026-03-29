@@ -6,9 +6,19 @@ use BackedEnum;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Moffhub\Ussd\Analytics\UssdAnalytics;
 use Moffhub\Ussd\Cache\UssdCacheManager;
+use Moffhub\Ussd\Events\InputReceived;
+use Moffhub\Ussd\Events\MenuEntered;
+use Moffhub\Ussd\Events\MenuExited;
+use Moffhub\Ussd\Events\NavigationPerformed;
+use Moffhub\Ussd\Events\SessionEnded;
+use Moffhub\Ussd\Events\SessionExpired;
+use Moffhub\Ussd\Events\SessionResumed;
+use Moffhub\Ussd\Events\SessionStarted;
 use Moffhub\Ussd\Interfaces\MenuNameInterface;
 use Moffhub\Ussd\Interfaces\UssdMenuInterface;
 use Moffhub\Ussd\Interfaces\UssdProviderInterface;
@@ -351,6 +361,21 @@ class UssdFramework
                 $this->analytics->trackSession($phoneNumber, 'start');
             }
 
+            // Dispatch session lifecycle events
+            if ($this->session->getStatus() === 'new') {
+                SessionStarted::dispatch(
+                    $this->session->getSessionId(),
+                    $phoneNumber,
+                    $this->provider->getName(),
+                );
+            } elseif (in_array($this->session->getStatus(), ['active', 'grace_period', 'recovered'], true)) {
+                SessionResumed::dispatch(
+                    $this->session->getSessionId(),
+                    $phoneNumber,
+                    $this->session->isRecovered(),
+                );
+            }
+
             $this->executeHooks('before_process', [$request, $this->session]);
 
             $continuationResponse = $this->handleSessionContinuation();
@@ -381,11 +406,23 @@ class UssdFramework
                 $this->saveSessionToDatabase($response);
             }
 
-            if ($response->isEnd() && $this->analytics) {
-                $this->analytics->trackSession($phoneNumber, 'end', [
+            if ($response->isEnd()) {
+                $this->analytics?->trackSession($phoneNumber, 'end', [
                     'final_menu' => $menuName,
                     'total_interactions' => $this->session->get('interaction_count', 0),
                 ]);
+
+                $menusVisited = array_map(
+                    fn (array $entry) => $entry['menu'] ?? '',
+                    $this->session->get('menu_history', [])
+                );
+
+                SessionEnded::dispatch(
+                    $this->session->getSessionId(),
+                    $phoneNumber,
+                    $this->session->getSessionDuration(),
+                    $menusVisited,
+                );
             }
 
             return $response;
@@ -473,9 +510,59 @@ class UssdFramework
 
     protected function retrieveSession(string $phoneNumber): ?array
     {
-        // This would use the persistence strategy
-        // For now, just return null - implement based on your storage choice
-        return null;
+        $cacheKey = ($this->config['session_prefix'] ?? 'ussd_session_').$phoneNumber;
+
+        // 1. Try cache first (primary)
+        $sessionData = null;
+        if ($this->cacheManager instanceof UssdCacheManager || $this->config['cache']['enabled']) {
+            $cached = Cache::get($cacheKey);
+            if (is_array($cached)) {
+                $sessionData = $cached;
+            }
+        }
+
+        // 2. Fall back to database if cache miss
+        if ($sessionData === null && $this->databaseService instanceof UssdDatabaseService) {
+            try {
+                $dbSession = DB::table('ussd_user_sessions')
+                    ->where('phone_number', $phoneNumber)
+                    ->where('completed', false)
+                    ->orderByDesc('last_activity')
+                    ->first();
+
+                if ($dbSession) {
+                    $decoded = json_decode($dbSession->session_data, true);
+                    if (is_array($decoded)) {
+                        $sessionData = $decoded;
+                        // Re-populate cache from database
+                        $timeout = $this->config['session_timeout'] ?? 300;
+                        Cache::put($cacheKey, $sessionData, $timeout);
+                    }
+                }
+            } catch (Exception $e) {
+                Log::warning('Failed to retrieve session from database', [
+                    'phone' => $phoneNumber,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if ($sessionData === null) {
+            return null;
+        }
+
+        // 3. Check if session is expired beyond grace period recovery
+        if (isset($sessionData['updated_at'])) {
+            $updatedAt = Carbon::parse($sessionData['updated_at']);
+            $maxInactiveTime = $this->config['max_inactive_time'] ?? 1800;
+
+            // Beyond max inactive time — not recoverable at all
+            if ($updatedAt->addSeconds($maxInactiveTime)->isBefore(Carbon::now())) {
+                return null;
+            }
+        }
+
+        return $sessionData;
     }
 
     protected function handleExistingSession(array $sessionData, Request $request): UssdSession
@@ -504,6 +591,13 @@ class UssdFramework
             }
         }
 
+        // Session has expired beyond grace period and intelligent recovery
+        SessionExpired::dispatch(
+            $sessionData['session_metadata']['session_id'] ?? $this->generateSessionId(),
+            $this->extractPhoneNumber($request),
+            $sessionData['current_menu'] ?? null,
+        );
+
         if ($this->config['enable_context_preservation']) {
             return $this->createNewSessionWithContext($sessionData, $request);
         }
@@ -524,7 +618,7 @@ class UssdFramework
     protected function attemptIntelligentRecovery(array $sessionData, Request $request): ?array
     {
         foreach ($this->sessionRecoveryHandlers as $handler) {
-            $context = $handler($sessionData, $request, $this->config);
+            $context = $handler($sessionData);
             if ($context) {
                 return $context;
             }
@@ -699,6 +793,12 @@ class UssdFramework
             'session_step' => $session->getStep(),
         ]);
 
+        InputReceived::dispatch(
+            $session->getSessionId(),
+            $session->getCurrentMenu() ?? $this->config['default_menu'],
+            $text,
+        );
+
         if ($session->getFlag('awaiting_continuation_choice')) {
             return $this->processContinuationChoice($text);
         }
@@ -799,6 +899,21 @@ class UssdFramework
             $previousMenu,
             $resolvedName,
             'navigate'
+        );
+
+        if ($previousMenu !== null && $previousMenu !== $resolvedName) {
+            MenuExited::dispatch(
+                $this->session->getSessionId(),
+                $previousMenu,
+                $resolvedName,
+                null,
+            );
+        }
+
+        MenuEntered::dispatch(
+            $this->session->getSessionId(),
+            $resolvedName,
+            $previousMenu,
         );
     }
 
@@ -919,6 +1034,10 @@ class UssdFramework
             );
         }
 
+        if ($result) {
+            NavigationPerformed::dispatch($this->session->getSessionId(), 'back');
+        }
+
         return $result;
     }
 
@@ -932,6 +1051,8 @@ class UssdFramework
 
             return $menu->process('', $session);
         }
+
+        NavigationPerformed::dispatch($session->getSessionId(), 'home');
 
         $session->reset();
         $this->navigateToMenu($defaultMenu);
@@ -1004,7 +1125,33 @@ class UssdFramework
 
     public function migrateSession(string $fromPhoneNumber, string $toPhoneNumber): bool
     {
-        return ! $this->config['enable_session_migration'];
+        if (! $this->config['enable_session_migration']) {
+            return false;
+        }
+
+        try {
+            $fromCacheKey = ($this->config['session_prefix'] ?? 'ussd_session_').$fromPhoneNumber;
+            $toCacheKey = ($this->config['session_prefix'] ?? 'ussd_session_').$toPhoneNumber;
+
+            $sessionData = Cache::get($fromCacheKey);
+            if (! is_array($sessionData)) {
+                return false;
+            }
+
+            $timeout = $this->config['session_timeout'] ?? 300;
+            Cache::put($toCacheKey, $sessionData, $timeout);
+            Cache::forget($fromCacheKey);
+
+            return true;
+        } catch (Exception $e) {
+            Log::error('Session migration failed', [
+                'from' => $fromPhoneNumber,
+                'to' => $toPhoneNumber,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
     }
 
     public function registerMenus(array $menus): static

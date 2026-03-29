@@ -11,6 +11,7 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Moffhub\Ussd\Jobs\FlushAnalyticsBuffer;
 use Moffhub\Ussd\Services\UssdDatabaseService;
 
 class UssdAnalytics
@@ -20,6 +21,10 @@ class UssdAnalytics
     protected array $metricsBuffer = [];
 
     protected ?UssdDatabaseService $databaseService = null;
+
+    protected string $flushStrategy;
+
+    protected bool $shutdownRegistered = false;
 
     public function __construct(array $config = [])
     {
@@ -37,6 +42,39 @@ class UssdAnalytics
             'anonymize_users' => true,
             'real_time_dashboard' => true,
         ], $config);
+
+        $this->flushStrategy = (string) ($config['flush_strategy']
+            ?? config('ussd.analytics.flush_strategy', 'sync'));
+
+        if ($this->flushStrategy === 'shutdown') {
+            $this->registerShutdownFunction();
+        }
+    }
+
+    /**
+     * Register a shutdown function to flush any remaining buffer.
+     */
+    protected function registerShutdownFunction(): void
+    {
+        if ($this->shutdownRegistered) {
+            return;
+        }
+
+        register_shutdown_function(function (): void {
+            if ($this->metricsBuffer !== []) {
+                $this->flushBuffer();
+            }
+        });
+
+        $this->shutdownRegistered = true;
+    }
+
+    /**
+     * Get the flush strategy.
+     */
+    public function getFlushStrategy(): string
+    {
+        return $this->flushStrategy;
     }
 
     public function setDatabaseService(UssdDatabaseService $databaseService): void
@@ -277,6 +315,31 @@ class UssdAnalytics
             return false;
         }
 
+        // For async strategy, dispatch a queued job
+        if ($this->flushStrategy === 'async') {
+            try {
+                dispatch(new FlushAnalyticsBuffer(
+                    $this->metricsBuffer,
+                    $this->config['table_name'],
+                ));
+
+                Log::info('Analytics buffer dispatched for async flushing', [
+                    'records_count' => count($this->metricsBuffer),
+                ]);
+
+                $this->metricsBuffer = [];
+
+                return true;
+            } catch (\Exception $e) {
+                Log::error('Failed to dispatch analytics buffer for async flushing', [
+                    'error' => $e->getMessage(),
+                    'buffer_size' => count($this->metricsBuffer),
+                ]);
+
+                // Fall through to sync flush
+            }
+        }
+
         try {
             $records = [];
             foreach ($this->metricsBuffer as $event) {
@@ -309,6 +372,16 @@ class UssdAnalytics
 
             return false;
         }
+    }
+
+    /**
+     * Get the current buffer contents (for testing).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getBuffer(): array
+    {
+        return $this->metricsBuffer;
     }
 
     protected function updateRealTimeMetrics(array $event): void
