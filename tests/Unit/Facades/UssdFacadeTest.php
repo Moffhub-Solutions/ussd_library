@@ -36,7 +36,7 @@ class UssdFacadeTest extends TestCase
     {
         $health = Ussd::getHealthStatus();
 
-        $this->assertIsArray($health);
+        $this->assertNotEmpty($health);
         $this->assertArrayHasKey('status', $health);
     }
 

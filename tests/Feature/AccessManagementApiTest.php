@@ -238,7 +238,7 @@ class AccessManagementApiTest extends TestCase
         $response = $this->get('/ussd/admin/access-list/export?type=whitelist&format=csv');
 
         $response->assertOk();
-        $this->assertStringStartsWith('text/csv', $response->headers->get('content-type'));
+        $this->assertStringStartsWith('text/csv', (string) $response->headers->get('content-type'));
     }
 
     public function test_export_validates_type(): void
