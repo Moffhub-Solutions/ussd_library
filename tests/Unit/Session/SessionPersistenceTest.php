@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Moffhub\Ussd\Tests\Unit\Session;
 
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Moffhub\Ussd\Tests\TestCase;
 use Moffhub\Ussd\UssdFramework;
@@ -216,7 +217,7 @@ class SessionPersistenceTest extends TestCase
         $prop->setAccessible(true);
 
         $handlers = $prop->getValue($framework);
-        $handlers['test_handler'] = function (array $sessionData) use (&$receivedArgs): ?array {
+        $handlers['test_handler'] = function (array $sessionData) use (&$receivedArgs): array {
             $receivedArgs = func_get_args();
 
             return ['type' => 'test', 'suggested_action' => 'continue'];
@@ -227,7 +228,7 @@ class SessionPersistenceTest extends TestCase
         $method = $reflection->getMethod('attemptIntelligentRecovery');
         $method->setAccessible(true);
 
-        $request = new \Illuminate\Http\Request;
+        $request = new Request;
         $sessionData = ['current_menu' => 'main', 'form_data' => ['name' => 'Test']];
 
         $result = $method->invoke($framework, $sessionData, $request);
@@ -256,7 +257,7 @@ class SessionPersistenceTest extends TestCase
         $method = $reflection->getMethod('attemptIntelligentRecovery');
         $method->setAccessible(true);
 
-        $request = new \Illuminate\Http\Request;
+        $request = new Request;
         $sessionData = [
             'form_data' => ['field1' => 'val1', 'field2' => 'val2', 'field3' => 'val3'],
             'form_config' => ['fields' => ['field1', 'field2', 'field3', 'field4']],

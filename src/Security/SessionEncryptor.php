@@ -67,7 +67,7 @@ class SessionEncryptor
 
             try {
                 if ($encrypting) {
-                    $processed = Crypt::encryptString(is_string($value) ? $value : json_encode($value));
+                    $processed = Crypt::encryptString(is_string($value) ? $value : (json_encode($value) ?: ''));
                 } else {
                     $decrypted = Crypt::decryptString((string) $value);
                     // Try to decode JSON, fall back to string

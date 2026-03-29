@@ -64,7 +64,7 @@ class RequestVerifier
             return false;
         }
 
-        return hash_equals($secret, $apiKey);
+        return hash_equals($secret, (string) $apiKey);
     }
 
     /**
@@ -84,12 +84,14 @@ class RequestVerifier
             return false;
         }
 
+        $tokenStr = (string) $token;
+
         // Strip "Bearer " prefix if present
-        if (str_starts_with($token, 'Bearer ')) {
-            $token = substr($token, 7);
+        if (str_starts_with($tokenStr, 'Bearer ')) {
+            $tokenStr = substr($tokenStr, 7);
         }
 
-        return hash_equals($secret, $token);
+        return hash_equals($secret, $tokenStr);
     }
 
     /**
@@ -102,7 +104,7 @@ class RequestVerifier
         $signature = $request->header('X-Signature')
             ?? $request->header('X-MTN-Signature');
 
-        if ($signature === null) {
+        if (! is_string($signature)) {
             Log::warning('RequestVerifier: Missing signature in MTN request');
 
             return false;
@@ -122,7 +124,7 @@ class RequestVerifier
         $signature = $request->header('X-Signature')
             ?? $request->header('X-HMAC-Signature');
 
-        if ($signature === null) {
+        if (! is_string($signature)) {
             Log::warning('RequestVerifier: Missing signature in generic request');
 
             return false;

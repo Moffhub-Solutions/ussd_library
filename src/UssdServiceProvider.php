@@ -12,6 +12,7 @@ use Moffhub\Ussd\Console\Commands\HealthCheckCommand;
 use Moffhub\Ussd\Console\Commands\ListSessionsCommand;
 use Moffhub\Ussd\Console\Commands\ManageAccessCommand;
 use Moffhub\Ussd\Console\Commands\SimulateCommand;
+use Moffhub\Ussd\Http\Controllers\AccessManagementController;
 use Moffhub\Ussd\Http\Middleware\UssdAuthentication;
 use Moffhub\Ussd\Http\Middleware\UssdRateLimit;
 use Moffhub\Ussd\Security\RequestVerifier;
@@ -82,7 +83,7 @@ class UssdServiceProvider extends ServiceProvider
         Route::prefix($prefix)
             ->middleware($middleware)
             ->group(function (): void {
-                $controller = \Moffhub\Ussd\Http\Controllers\AccessManagementController::class;
+                $controller = AccessManagementController::class;
 
                 Route::get('access-list', [$controller, 'index']);
                 Route::post('access-list', [$controller, 'store']);

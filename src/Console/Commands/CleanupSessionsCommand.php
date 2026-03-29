@@ -18,10 +18,10 @@ class CleanupSessionsCommand extends Command
 
     public function handle(): int
     {
-        $olderThan = $this->option('older-than');
+        $olderThan = is_string($this->option('older-than')) ? $this->option('older-than') : '24h';
         $dryRun = (bool) $this->option('dry-run');
 
-        $cutoff = $this->parseDuration((string) $olderThan);
+        $cutoff = $this->parseDuration($olderThan);
 
         if ($cutoff === null) {
             $this->error("Invalid duration format: {$olderThan}. Use formats like 24h, 7d, or 30m.");

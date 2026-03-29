@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Moffhub\Ussd\Tests\Unit;
 
+use Carbon\Carbon;
 use Moffhub\Ussd\Analytics\UssdAnalytics;
 use Moffhub\Ussd\Tests\TestCase;
 
@@ -181,7 +182,7 @@ class UssdAnalyticsTest extends TestCase
 
         // The buffer should have attempted auto-flush at count 3
         // Since store_in_database is false, events remain in buffer
-        $this->assertTrue(true); // The auto-flush logic was triggered without errors
+        $this->assertGreaterThanOrEqual(0, count($analytics->getBuffer()));
     }
 
     // ==================== Phone number hashing ====================
@@ -269,8 +270,8 @@ class UssdAnalyticsTest extends TestCase
         $analytics = new UssdAnalytics(['store_in_database' => false]);
 
         $result = $analytics->generateReport(
-            \Carbon\Carbon::now()->subDays(7),
-            \Carbon\Carbon::now()
+            Carbon::now()->subDays(7),
+            Carbon::now()
         );
 
         $this->assertArrayHasKey('error', $result);

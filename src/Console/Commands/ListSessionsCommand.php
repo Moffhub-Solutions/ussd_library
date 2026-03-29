@@ -22,7 +22,7 @@ class ListSessionsCommand extends Command
 
         $providerFilter = $this->option('provider');
 
-        if ($providerFilter !== null) {
+        if (is_string($providerFilter) && $providerFilter !== '') {
             $query->where('session_data', 'like', '%"provider":"'.$providerFilter.'"%');
         }
 

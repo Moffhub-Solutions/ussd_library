@@ -4,14 +4,23 @@ declare(strict_types=1);
 
 namespace Moffhub\Ussd\Tests\Unit\Console;
 
+use Illuminate\Testing\PendingCommand;
 use Moffhub\Ussd\Console\Commands\SimulateCommand;
 use Moffhub\Ussd\Tests\TestCase;
 
 class SimulateCommandTest extends TestCase
 {
+    private function runArtisan(string $command, array $parameters = []): PendingCommand
+    {
+        $result = $this->artisan($command, $parameters);
+        $this->assertInstanceOf(PendingCommand::class, $result);
+
+        return $result;
+    }
+
     public function test_command_is_registered(): void
     {
-        $this->artisan('list')
+        $this->runArtisan('list')
             ->expectsOutputToContain('ussd:simulate')
             ->assertExitCode(0);
     }
@@ -40,7 +49,7 @@ class SimulateCommandTest extends TestCase
 
     public function test_command_fails_with_invalid_provider(): void
     {
-        $this->artisan('ussd:simulate', ['--provider' => 'nonexistent'])
+        $this->runArtisan('ussd:simulate', ['--provider' => 'nonexistent'])
             ->expectsOutputToContain('Unknown provider: nonexistent')
             ->assertExitCode(1);
     }

@@ -39,9 +39,9 @@ class UssdRateLimit
 
     protected function extractPhoneNumber(Request $request): string
     {
-        return $request->input('phoneNumber')
+        return (string) ($request->input('phoneNumber')
             ?? $request->input('msisdn')
             ?? $request->input('MSISDN')
-            ?? '';
+            ?? '');
     }
 }

@@ -18,20 +18,20 @@ class UssdAuthentication
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $config = config('ussd.gateway_authentication', []);
+        $config = (array) config('ussd.gateway_authentication', []);
 
         if (! ($config['enabled'] ?? false)) {
             return $next($request);
         }
 
-        $allowedIps = $config['allowed_ips'] ?? [];
+        $allowedIps = (array) ($config['allowed_ips'] ?? []);
 
         if ($allowedIps !== [] && ! in_array($request->ip(), $allowedIps, true)) {
             return response()->json(['error' => 'Unauthorized gateway IP.'], 403);
         }
 
-        $signatureHeader = $config['signature_header'] ?? null;
-        $signatureSecret = $config['signature_secret'] ?? null;
+        $signatureHeader = isset($config['signature_header']) && is_string($config['signature_header']) ? $config['signature_header'] : null;
+        $signatureSecret = isset($config['signature_secret']) && is_string($config['signature_secret']) ? $config['signature_secret'] : null;
 
         if ($signatureHeader !== null && $signatureSecret !== null) {
             $providedSignature = $request->header($signatureHeader);
@@ -43,7 +43,7 @@ class UssdAuthentication
             $payload = $request->getContent();
             $expectedSignature = hash_hmac('sha256', $payload, $signatureSecret);
 
-            if (! hash_equals($expectedSignature, $providedSignature)) {
+            if (! is_string($providedSignature) || ! hash_equals($expectedSignature, $providedSignature)) {
                 return response()->json(['error' => 'Invalid gateway signature.'], 403);
             }
         }

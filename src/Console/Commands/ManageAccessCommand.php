@@ -19,8 +19,8 @@ class ManageAccessCommand extends Command
 
     public function handle(): int
     {
-        $action = $this->argument('action');
-        $type = $this->option('type');
+        $action = is_string($this->argument('action')) ? $this->argument('action') : '';
+        $type = is_string($this->option('type')) ? $this->option('type') : 'whitelist';
 
         if (! in_array($type, ['whitelist', 'blacklist'], true)) {
             $this->error('Invalid type. Use --type=whitelist or --type=blacklist.');
@@ -38,20 +38,21 @@ class ManageAccessCommand extends Command
 
     protected function addEntry(string $type): int
     {
-        $phone = $this->option('phone');
+        $phone = is_string($this->option('phone')) ? $this->option('phone') : '';
 
-        if ($phone === null || $phone === '') {
+        if ($phone === '') {
             $this->error('Phone number is required. Use --phone=+254...');
 
             return self::FAILURE;
         }
 
         $reason = $this->option('reason');
+        $reasonStr = is_string($reason) ? $reason : null;
 
         if ($type === 'whitelist') {
-            UssdAccessList::addToWhitelist($phone, $reason, 'artisan');
+            UssdAccessList::addToWhitelist($phone, $reasonStr, 'artisan');
         } else {
-            UssdAccessList::addToBlacklist($phone, $reason, 'artisan');
+            UssdAccessList::addToBlacklist($phone, $reasonStr, 'artisan');
         }
 
         $this->info("Added {$phone} to {$type}.");
@@ -61,9 +62,9 @@ class ManageAccessCommand extends Command
 
     protected function removeEntry(string $type): int
     {
-        $phone = $this->option('phone');
+        $phone = is_string($this->option('phone')) ? $this->option('phone') : '';
 
-        if ($phone === null || $phone === '') {
+        if ($phone === '') {
             $this->error('Phone number is required. Use --phone=+254...');
 
             return self::FAILURE;

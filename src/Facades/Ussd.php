@@ -19,7 +19,7 @@ use Moffhub\Ussd\UssdFramework;
  * @method static ?\Moffhub\Ussd\Interfaces\UssdProviderInterface getCurrentProvider()
  * @method static ?\Moffhub\Ussd\UssdSession getSession()
  *
- * @see \Moffhub\Ussd\UssdFramework
+ * @see UssdFramework
  */
 class Ussd extends Facade
 {

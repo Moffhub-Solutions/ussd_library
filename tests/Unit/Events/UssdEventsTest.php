@@ -6,6 +6,7 @@ namespace Moffhub\Ussd\Tests\Unit\Events;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
+use Moffhub\Ussd\Events\FormSubmitted;
 use Moffhub\Ussd\Events\InputReceived;
 use Moffhub\Ussd\Events\MenuEntered;
 use Moffhub\Ussd\Events\MenuExited;
@@ -80,7 +81,7 @@ class UssdEventsTest extends TestCase
             'phoneNumber' => '+254712345678',
             'text' => '1',
         ]);
-        $request->sessionId = 'test_session';
+        $request->merge(['sessionId' => 'test_session']);
 
         $framework->handle($request);
 
@@ -151,7 +152,7 @@ class UssdEventsTest extends TestCase
         $framework->registerMenu('settings', $settingsMenu);
 
         $request = Request::create('/ussd', 'POST', ['phoneNumber' => '+254712345678', 'text' => '']);
-        $request->sessionId = 'test_session';
+        $request->merge(['sessionId' => 'test_session']);
         $session = new UssdSession('+254712345678', 'test_session', []);
         $framework->setSession($session);
         $framework->setRequest($request);
@@ -186,7 +187,7 @@ class UssdEventsTest extends TestCase
 
     public function test_form_submitted_event_has_correct_properties(): void
     {
-        $event = new \Moffhub\Ussd\Events\FormSubmitted('sess_123', 'registration', ['name' => 'John']);
+        $event = new FormSubmitted('sess_123', 'registration', ['name' => 'John']);
 
         $this->assertEquals('sess_123', $event->sessionId);
         $this->assertEquals('registration', $event->menuName);
@@ -224,7 +225,7 @@ class UssdEventsTest extends TestCase
         $framework->registerMenu('settings', $settingsMenu);
 
         $request = Request::create('/ussd', 'POST', ['phoneNumber' => '+254712345678', 'text' => '']);
-        $request->sessionId = 'test_session';
+        $request->merge(['sessionId' => 'test_session']);
         $session = new UssdSession('+254712345678', 'test_session', []);
         $session->setCurrentMenu('main');
         $session->setCurrentMenu('settings');
@@ -264,7 +265,7 @@ class UssdEventsTest extends TestCase
             'phoneNumber' => '+254712345678',
             'text' => $text,
         ]);
-        $request->sessionId = 'test_session_'.uniqid();
+        $request->merge(['sessionId' => 'test_session_'.uniqid()]);
 
         return $request;
     }

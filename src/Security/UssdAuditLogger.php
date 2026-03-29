@@ -98,7 +98,7 @@ class UssdAuditLogger
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to save security event to database', [
                 'error' => $e->getMessage(),
                 'event_type' => $eventType,

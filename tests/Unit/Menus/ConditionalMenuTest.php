@@ -9,6 +9,7 @@ use Moffhub\Ussd\Menus\ConditionalMenu;
 use Moffhub\Ussd\Menus\SimpleMenu;
 use Moffhub\Ussd\Tests\TestCase;
 use Moffhub\Ussd\UssdFramework;
+use Moffhub\Ussd\UssdResponse;
 use Moffhub\Ussd\UssdSession;
 
 class ConditionalMenuTest extends TestCase
@@ -159,7 +160,7 @@ class ConditionalMenuTest extends TestCase
     public function test_process_step_delegates_input_to_resolved_menu(): void
     {
         $menu = new SimpleMenu('Menu', ['1' => 'Option'], [
-            '1' => fn ($input, $session, $framework) => \Moffhub\Ussd\UssdResponse::end('Selected!'),
+            '1' => fn ($input, $session, $framework) => UssdResponse::end('Selected!'),
         ]);
         $menu->setFramework($this->framework);
 

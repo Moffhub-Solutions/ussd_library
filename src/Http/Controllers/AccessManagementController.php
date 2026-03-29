@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Moffhub\Ussd\Http\Controllers;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -168,7 +169,9 @@ class AccessManagementController extends Controller
 
         $type = $request->input('type');
         $format = $request->input('format', 'json');
-        $entries = UssdAccessList::where('type', $type)->active()->get();
+        $entries = UssdAccessList::query()->where('type', $type)->where('is_active', true)->where(function ($q): void {
+            $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+        })->get();
 
         if ($format === 'csv') {
             return $this->exportCsv($entries, $type);
@@ -299,7 +302,7 @@ class AccessManagementController extends Controller
     /**
      * Export entries as CSV via streamed response.
      *
-     * @param  \Illuminate\Database\Eloquent\Collection<int, UssdAccessList>  $entries
+     * @param  Collection<int, UssdAccessList>  $entries
      */
     private function exportCsv($entries, string $type): StreamedResponse
     {

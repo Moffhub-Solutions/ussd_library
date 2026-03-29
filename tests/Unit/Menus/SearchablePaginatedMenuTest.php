@@ -41,7 +41,13 @@ class SearchablePaginatedMenuTest extends TestCase
 
             public function getData(mixed $session = null, array $filters = []): array
             {
-                return $this->data;
+                return [
+                    'data' => $this->data,
+                    'total' => count($this->data),
+                    'current_page' => 1,
+                    'per_page' => count($this->data),
+                    'has_more' => false,
+                ];
             }
 
             public function getItem(string|int $id, mixed $session): mixed

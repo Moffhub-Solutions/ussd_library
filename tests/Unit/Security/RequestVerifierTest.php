@@ -24,7 +24,7 @@ class RequestVerifierTest extends TestCase
 
     public function test_verify_returns_true_when_disabled(): void
     {
-        $this->app['config']->set('ussd.verify_signatures', false);
+        config()->set('ussd.verify_signatures', false);
         $verifier = new RequestVerifier;
 
         $request = Request::create('/ussd', 'POST', ['phoneNumber' => '+254712345678']);
@@ -95,8 +95,8 @@ class RequestVerifierTest extends TestCase
     {
         $verifier = new RequestVerifier;
 
-        $payload = json_encode(['msisdn' => '+234712345678', 'UserAnswer' => '1']);
-        $signature = hash_hmac('sha256', (string) $payload, 'mtn-hmac-secret-789');
+        $payload = json_encode(['msisdn' => '+234712345678', 'UserAnswer' => '1']) ?: '';
+        $signature = hash_hmac('sha256', $payload, 'mtn-hmac-secret-789');
 
         $request = Request::create('/ussd', 'POST', [], [], [], ['CONTENT_TYPE' => 'application/json'], $payload);
         $request->headers->set('X-Signature', $signature);
@@ -108,7 +108,7 @@ class RequestVerifierTest extends TestCase
     {
         $verifier = new RequestVerifier;
 
-        $payload = json_encode(['msisdn' => '+234712345678']);
+        $payload = json_encode(['msisdn' => '+234712345678']) ?: '';
 
         $request = Request::create('/ussd', 'POST', [], [], [], ['CONTENT_TYPE' => 'application/json'], $payload);
         $request->headers->set('X-Signature', 'invalid-signature');
@@ -143,7 +143,7 @@ class RequestVerifierTest extends TestCase
 
     public function test_is_not_enabled_when_disabled(): void
     {
-        $this->app['config']->set('ussd.verify_signatures', false);
+        config()->set('ussd.verify_signatures', false);
         $verifier = new RequestVerifier;
 
         $this->assertFalse($verifier->isEnabled());

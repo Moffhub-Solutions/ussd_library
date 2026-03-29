@@ -6,6 +6,8 @@ use BackedEnum;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Moffhub\Ussd\Analytics\UssdAnalytics;
 use Moffhub\Ussd\Cache\UssdCacheManager;
@@ -364,7 +366,7 @@ class UssdFramework
                 SessionStarted::dispatch(
                     $this->session->getSessionId(),
                     $phoneNumber,
-                    $this->provider instanceof UssdProviderInterface ? $this->provider->getName() : 'unknown',
+                    $this->provider->getName(),
                 );
             } elseif (in_array($this->session->getStatus(), ['active', 'grace_period', 'recovered'], true)) {
                 SessionResumed::dispatch(
@@ -513,7 +515,7 @@ class UssdFramework
         // 1. Try cache first (primary)
         $sessionData = null;
         if ($this->cacheManager instanceof UssdCacheManager || $this->config['cache']['enabled']) {
-            $cached = \Illuminate\Support\Facades\Cache::get($cacheKey);
+            $cached = Cache::get($cacheKey);
             if (is_array($cached)) {
                 $sessionData = $cached;
             }
@@ -522,7 +524,7 @@ class UssdFramework
         // 2. Fall back to database if cache miss
         if ($sessionData === null && $this->databaseService instanceof UssdDatabaseService) {
             try {
-                $dbSession = \Illuminate\Support\Facades\DB::table('ussd_user_sessions')
+                $dbSession = DB::table('ussd_user_sessions')
                     ->where('phone_number', $phoneNumber)
                     ->where('completed', false)
                     ->orderByDesc('last_activity')
@@ -534,10 +536,10 @@ class UssdFramework
                         $sessionData = $decoded;
                         // Re-populate cache from database
                         $timeout = $this->config['session_timeout'] ?? 300;
-                        \Illuminate\Support\Facades\Cache::put($cacheKey, $sessionData, $timeout);
+                        Cache::put($cacheKey, $sessionData, $timeout);
                     }
                 }
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 Log::warning('Failed to retrieve session from database', [
                     'phone' => $phoneNumber,
                     'error' => $e->getMessage(),
@@ -1131,17 +1133,17 @@ class UssdFramework
             $fromCacheKey = ($this->config['session_prefix'] ?? 'ussd_session_').$fromPhoneNumber;
             $toCacheKey = ($this->config['session_prefix'] ?? 'ussd_session_').$toPhoneNumber;
 
-            $sessionData = \Illuminate\Support\Facades\Cache::get($fromCacheKey);
+            $sessionData = Cache::get($fromCacheKey);
             if (! is_array($sessionData)) {
                 return false;
             }
 
             $timeout = $this->config['session_timeout'] ?? 300;
-            \Illuminate\Support\Facades\Cache::put($toCacheKey, $sessionData, $timeout);
-            \Illuminate\Support\Facades\Cache::forget($fromCacheKey);
+            Cache::put($toCacheKey, $sessionData, $timeout);
+            Cache::forget($fromCacheKey);
 
             return true;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Session migration failed', [
                 'from' => $fromPhoneNumber,
                 'to' => $toPhoneNumber,

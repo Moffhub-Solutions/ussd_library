@@ -4,14 +4,19 @@ declare(strict_types=1);
 
 namespace Moffhub\Ussd\Tests\Unit\Services;
 
+use Moffhub\Ussd\Models\UssdMenuStatistic;
+use Moffhub\Ussd\Services\UssdDatabaseService;
 use Moffhub\Ussd\Tests\TestCase;
 
 class UssdDatabaseServiceNamespaceTest extends TestCase
 {
     public function test_database_service_imports_package_model_namespace(): void
     {
-        $reflection = new \ReflectionClass(\Moffhub\Ussd\Services\UssdDatabaseService::class);
-        $source = file_get_contents($reflection->getFileName());
+        $reflection = new \ReflectionClass(UssdDatabaseService::class);
+        $fileName = $reflection->getFileName();
+        $this->assertIsString($fileName);
+        $source = file_get_contents($fileName);
+        $this->assertIsString($source);
 
         $this->assertStringContainsString(
             'use Moffhub\\Ussd\\Models\\UssdMenuStatistic;',
@@ -25,7 +30,7 @@ class UssdDatabaseServiceNamespaceTest extends TestCase
 
     public function test_ussd_menu_statistic_model_uses_package_namespace(): void
     {
-        $reflection = new \ReflectionClass(\Moffhub\Ussd\Models\UssdMenuStatistic::class);
+        $reflection = new \ReflectionClass(UssdMenuStatistic::class);
 
         $this->assertEquals('Moffhub\\Ussd\\Models', $reflection->getNamespaceName());
     }

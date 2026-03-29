@@ -25,9 +25,9 @@ class SimulateCommand extends Command
 
     public function handle(): int
     {
-        $phone = (string) $this->option('phone');
-        $providerName = (string) $this->option('provider');
-        $serviceCode = $this->option('service-code') ?: '*123#';
+        $phone = is_string($this->option('phone')) ? $this->option('phone') : '254700000000';
+        $providerName = is_string($this->option('provider')) ? $this->option('provider') : 'generic';
+        $serviceCode = is_string($this->option('service-code')) ? $this->option('service-code') : '*123#';
         $sessionId = 'sim_'.uniqid('', true);
 
         $this->startTime = microtime(true);

@@ -23,7 +23,7 @@ class HealthCheckCommand extends Command
 
         // Check cache connectivity
         $cacheOk = $this->checkCache();
-        $allHealthy = $allHealthy && $cacheOk;
+        $allHealthy = $cacheOk;
 
         // Check database connectivity
         $dbOk = $this->checkDatabase();

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Moffhub\Ussd\Tests\Unit\Console;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Testing\PendingCommand;
 use Moffhub\Ussd\Tests\TestCase;
 
 class CommandsTest extends TestCase
@@ -14,6 +15,14 @@ class CommandsTest extends TestCase
         parent::setUp();
 
         $this->loadMigrationsFrom(__DIR__.'/../../../database/migrations');
+    }
+
+    private function runArtisan(string $command, array $parameters = []): PendingCommand
+    {
+        $result = $this->runArtisan($command, $parameters);
+        $this->assertInstanceOf(PendingCommand::class, $result);
+
+        return $result;
     }
 
     // CleanupSessionsCommand tests
@@ -34,7 +43,7 @@ class CommandsTest extends TestCase
             'updated_at' => now()->subDays(2),
         ]);
 
-        $this->artisan('ussd:cleanup-sessions', ['--dry-run' => true])
+        $this->runArtisan('ussd:cleanup-sessions', ['--dry-run' => true])
             ->expectsOutputToContain('Would delete 1 expired session(s)')
             ->assertExitCode(0);
 
@@ -58,7 +67,7 @@ class CommandsTest extends TestCase
             'updated_at' => now()->subDays(2),
         ]);
 
-        $this->artisan('ussd:cleanup-sessions', ['--older-than' => '24h'])
+        $this->runArtisan('ussd:cleanup-sessions', ['--older-than' => '24h'])
             ->expectsOutputToContain('Deleted 1 expired session(s)')
             ->assertExitCode(0);
 
@@ -81,7 +90,7 @@ class CommandsTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        $this->artisan('ussd:cleanup-sessions', ['--older-than' => '24h'])
+        $this->runArtisan('ussd:cleanup-sessions', ['--older-than' => '24h'])
             ->expectsOutputToContain('No expired sessions found')
             ->assertExitCode(0);
 
@@ -90,7 +99,7 @@ class CommandsTest extends TestCase
 
     public function test_cleanup_sessions_invalid_duration(): void
     {
-        $this->artisan('ussd:cleanup-sessions', ['--older-than' => 'invalid'])
+        $this->runArtisan('ussd:cleanup-sessions', ['--older-than' => 'invalid'])
             ->expectsOutputToContain('Invalid duration format')
             ->assertExitCode(1);
     }
@@ -113,7 +122,7 @@ class CommandsTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        $this->artisan('ussd:list-sessions')
+        $this->runArtisan('ussd:list-sessions')
             ->expectsOutputToContain('active_session_1')
             ->expectsOutputToContain('Total active sessions: 1')
             ->assertExitCode(0);
@@ -121,7 +130,7 @@ class CommandsTest extends TestCase
 
     public function test_list_sessions_no_active_sessions(): void
     {
-        $this->artisan('ussd:list-sessions')
+        $this->runArtisan('ussd:list-sessions')
             ->expectsOutputToContain('No active sessions found')
             ->assertExitCode(0);
     }
@@ -130,7 +139,7 @@ class CommandsTest extends TestCase
 
     public function test_health_check_reports_healthy(): void
     {
-        $this->artisan('ussd:health')
+        $this->runArtisan('ussd:health')
             ->expectsOutputToContain('Cache is connected and operational')
             ->expectsOutputToContain('Database is connected')
             ->expectsOutputToContain('Overall status: HEALTHY')
@@ -141,7 +150,7 @@ class CommandsTest extends TestCase
 
     public function test_manage_access_add_to_whitelist(): void
     {
-        $this->artisan('ussd:manage-access', [
+        $this->runArtisan('ussd:manage-access', [
             'action' => 'add',
             '--type' => 'whitelist',
             '--phone' => '+254712345678',
@@ -159,7 +168,7 @@ class CommandsTest extends TestCase
 
     public function test_manage_access_add_to_blacklist(): void
     {
-        $this->artisan('ussd:manage-access', [
+        $this->runArtisan('ussd:manage-access', [
             'action' => 'add',
             '--type' => 'blacklist',
             '--phone' => '+254999999999',
@@ -183,7 +192,7 @@ class CommandsTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        $this->artisan('ussd:manage-access', [
+        $this->runArtisan('ussd:manage-access', [
             'action' => 'remove',
             '--type' => 'whitelist',
             '--phone' => '+254712345678',
@@ -204,7 +213,7 @@ class CommandsTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        $this->artisan('ussd:manage-access', [
+        $this->runArtisan('ussd:manage-access', [
             'action' => 'list',
             '--type' => 'whitelist',
         ])
@@ -214,7 +223,7 @@ class CommandsTest extends TestCase
 
     public function test_manage_access_invalid_action(): void
     {
-        $this->artisan('ussd:manage-access', [
+        $this->runArtisan('ussd:manage-access', [
             'action' => 'invalid',
             '--type' => 'whitelist',
         ])
@@ -224,7 +233,7 @@ class CommandsTest extends TestCase
 
     public function test_manage_access_invalid_type(): void
     {
-        $this->artisan('ussd:manage-access', [
+        $this->runArtisan('ussd:manage-access', [
             'action' => 'list',
             '--type' => 'invalid',
         ])
@@ -234,7 +243,7 @@ class CommandsTest extends TestCase
 
     public function test_manage_access_add_requires_phone(): void
     {
-        $this->artisan('ussd:manage-access', [
+        $this->runArtisan('ussd:manage-access', [
             'action' => 'add',
             '--type' => 'whitelist',
         ])
