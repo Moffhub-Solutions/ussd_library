@@ -19,7 +19,7 @@ class CommandsTest extends TestCase
 
     private function runArtisan(string $command, array $parameters = []): PendingCommand
     {
-        $result = $this->runArtisan($command, $parameters);
+        $result = $this->artisan($command, $parameters);
         $this->assertInstanceOf(PendingCommand::class, $result);
 
         return $result;

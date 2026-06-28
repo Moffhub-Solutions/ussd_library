@@ -64,10 +64,16 @@ class SearchablePaginatedMenu extends PaginatedMenu
     protected function showSearchResults(string $query, UssdSession $session): UssdResponse
     {
         $allData = $this->getData($session);
-        $filteredData = $this->filterData($allData, $query);
+
+        // A data provider may return either a bare item list or a paginator
+        // wrapper (['data' => items, 'total' => ...]). Filter the actual item
+        // list, then hand showPage() that list directly (showPage paginates the
+        // list and renders the empty message when it is empty).
+        $items = $allData['data'] ?? $allData;
+        $filteredItems = $this->filterData($items, $query);
 
         $originalProvider = $this->dataProvider;
-        $this->dataProvider = $filteredData;
+        $this->dataProvider = $filteredItems;
 
         $response = $this->showPage(1, $session);
 
@@ -88,7 +94,7 @@ class SearchablePaginatedMenu extends PaginatedMenu
                     return true;
                 }
             } else {
-                return str_contains(strtolower($item), $query);
+                return str_contains(strtolower((string) $item), $query);
             }
 
             return false;
