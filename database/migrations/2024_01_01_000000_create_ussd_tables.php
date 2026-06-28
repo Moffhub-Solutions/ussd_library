@@ -10,7 +10,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        $this->createIfMissing('ussd_audit_logs', function (Blueprint $table) {
+        $this->createIfMissing('ussd_audit_logs', function (Blueprint $table): void {
             $table->id();
             $table->timestamp('timestamp');
             $table->string('action');
@@ -29,7 +29,7 @@ return new class extends Migration
             $table->index(['action', 'timestamp']);
         });
 
-        $this->createIfMissing('ussd_analytics', function (Blueprint $table) {
+        $this->createIfMissing('ussd_analytics', function (Blueprint $table): void {
             $table->id();
             $table->string('event_type')->index();
             $table->string('phone_number')->nullable()->index();
@@ -44,7 +44,7 @@ return new class extends Migration
             $table->index(['session_id', 'timestamp']);
         });
 
-        $this->createIfMissing('ussd_performance_metrics', function (Blueprint $table) {
+        $this->createIfMissing('ussd_performance_metrics', function (Blueprint $table): void {
             $table->id();
             $table->string('action')->index();
             $table->string('menu_name')->nullable()->index();
@@ -62,7 +62,7 @@ return new class extends Migration
             $table->index(['duration_ms', 'timestamp']);
         });
 
-        $this->createIfMissing('ussd_user_sessions', function (Blueprint $table) {
+        $this->createIfMissing('ussd_user_sessions', function (Blueprint $table): void {
             $table->id();
             $table->string('session_id')->unique();
             $table->string('phone_number')->index();
@@ -82,7 +82,7 @@ return new class extends Migration
             $table->index(['completed', 'ended_at']);
         });
 
-        $this->createIfMissing('ussd_rate_limits', function (Blueprint $table) {
+        $this->createIfMissing('ussd_rate_limits', function (Blueprint $table): void {
             $table->id();
             $table->string('phone_number')->index();
             $table->string('action')->default('request');
@@ -98,7 +98,7 @@ return new class extends Migration
             $table->index(['last_violation']);
         });
 
-        $this->createIfMissing('ussd_security_events', function (Blueprint $table) {
+        $this->createIfMissing('ussd_security_events', function (Blueprint $table): void {
             $table->id();
             $table->string('event_type')->index();
             $table->string('phone_number')->nullable()->index();
@@ -118,7 +118,7 @@ return new class extends Migration
             $table->index(['phone_number', 'detected_at']);
         });
 
-        $this->createIfMissing('ussd_menu_statistics', function (Blueprint $table) {
+        $this->createIfMissing('ussd_menu_statistics', function (Blueprint $table): void {
             $table->id();
             $table->string('menu_name')->index();
             $table->string('option_selected')->nullable();
@@ -136,7 +136,7 @@ return new class extends Migration
             $table->index(['completion_count', 'date']);
         });
 
-        $this->createIfMissing('ussd_business_metrics', function (Blueprint $table) {
+        $this->createIfMissing('ussd_business_metrics', function (Blueprint $table): void {
             $table->id();
             $table->string('metric_name')->index();
             $table->string('metric_category')->index();
@@ -153,7 +153,7 @@ return new class extends Migration
             $table->index(['metric_category', 'recorded_at']);
             $table->index(['metric_value', 'recorded_at']);
         });
-        $this->createIfMissing('ussd_sessions', function (Blueprint $table) {
+        $this->createIfMissing('ussd_sessions', function (Blueprint $table): void {
             $table->id();
             $table->string('phone_number')->index();
             $table->string('session_id')->unique();
@@ -173,7 +173,7 @@ return new class extends Migration
         });
 
         // Create session analytics table for tracking
-        $this->createIfMissing('ussd_session_analytics', function (Blueprint $table) {
+        $this->createIfMissing('ussd_session_analytics', function (Blueprint $table): void {
             $table->id();
             $table->string('phone_number')->index();
             $table->string('session_id');
@@ -191,7 +191,7 @@ return new class extends Migration
         });
 
         // Create session recovery logs table
-        $this->createIfMissing('ussd_session_recovery_logs', function (Blueprint $table) {
+        $this->createIfMissing('ussd_session_recovery_logs', function (Blueprint $table): void {
             $table->id();
             $table->string('phone_number')->index();
             $table->string('old_session_id')->nullable();
@@ -208,7 +208,7 @@ return new class extends Migration
         });
 
         // Create access lists table (whitelist/blacklist)
-        $this->createIfMissing('ussd_access_lists', function (Blueprint $table) {
+        $this->createIfMissing('ussd_access_lists', function (Blueprint $table): void {
             $table->id();
             $table->string('phone_number')->index();
             $table->enum('type', ['whitelist', 'blacklist'])->index();
