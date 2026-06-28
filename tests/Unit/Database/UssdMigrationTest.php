@@ -24,14 +24,18 @@ class UssdMigrationTest extends TestCase
         'ussd_access_lists',
     ];
 
-    private function migration(): object
+    private function runMigrationUp(): void
     {
-        return require __DIR__.'/../../../database/migrations/2024_01_01_000000_create_ussd_tables.php';
+        $migration = require __DIR__.'/../../../database/migrations/2024_01_01_000000_create_ussd_tables.php';
+
+        if (is_object($migration) && method_exists($migration, 'up')) {
+            $migration->up();
+        }
     }
 
     public function test_up_creates_all_ussd_tables(): void
     {
-        $this->migration()->up();
+        $this->runMigrationUp();
 
         foreach (self::TABLES as $table) {
             $this->assertTrue(Schema::hasTable($table), "Expected table to be created: {$table}");
@@ -40,13 +44,12 @@ class UssdMigrationTest extends TestCase
 
     public function test_up_is_idempotent(): void
     {
-        $migration = $this->migration();
-        $migration->up();
+        $this->runMigrationUp();
 
         // A second run must not throw even though the tables already exist
         // (regression for the untimestamped -> timestamped filename rename, which
         // would otherwise attempt to re-create existing tables on older installs).
-        $migration->up();
+        $this->runMigrationUp();
 
         $this->assertTrue(Schema::hasTable('ussd_user_sessions'));
     }

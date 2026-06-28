@@ -6,6 +6,7 @@ namespace Moffhub\Ussd\Menus;
 
 use Moffhub\Ussd\Interfaces\ActionInterface;
 use Moffhub\Ussd\Interfaces\UssdMenuInterface;
+use Moffhub\Ussd\UssdFramework;
 use Moffhub\Ussd\UssdResponse;
 use Moffhub\Ussd\UssdSession;
 
@@ -62,17 +63,20 @@ class ConditionalMenu extends UssdMenu
     protected function runResolvedBranch(string $input, UssdSession $session, string $fallbackMessage): UssdResponse
     {
         $branch = $this->resolveMenu($session);
+        $framework = $this->framework;
 
-        if (is_string($branch) && $this->framework) {
-            $branch = $this->framework->getMenu($branch);
+        if (is_string($branch) && $framework instanceof UssdFramework) {
+            $branch = $framework->getMenu($branch);
         }
 
-        if ($branch instanceof ActionInterface) {
-            return $branch->execute($input === '' ? null : $input, $session, $this->framework);
+        if ($branch instanceof ActionInterface && $framework instanceof UssdFramework) {
+            return $branch->execute($input === '' ? null : $input, $session, $framework);
         }
 
         if ($branch instanceof UssdMenuInterface) {
-            $branch->setFramework($this->framework);
+            if ($framework instanceof UssdFramework) {
+                $branch->setFramework($framework);
+            }
 
             return $branch->process($input, $session);
         }
