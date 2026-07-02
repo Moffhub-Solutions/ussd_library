@@ -906,7 +906,7 @@ class UssdMenu implements UssdMenuInterface
             return UssdResponse::continue('Search '.$field->getName().":\nEnter search term:");
         }
 
-        if (is_numeric($input) && $input >= 1 && $input <= $this->config['items_per_page']) {
+        if (is_numeric($input) && (int) $input >= 1 && (int) $input <= $field->getItemsPerPage()) {
             return $this->handleFieldOptionSelection($field, $input, $session);
         }
 

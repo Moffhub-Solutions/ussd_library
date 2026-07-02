@@ -204,7 +204,9 @@ class FormMenu extends UssdMenu
             $formData = $session->getFormData();
 
             if ($this->onComplete && $this->framework) {
-                return call_user_func($this->onComplete, $formData, $session, $this->framework);
+                // Match UssdMenu::completeForm's argument order so a single onComplete
+                // signature ($session, $formData) works regardless of which menu runs it.
+                return call_user_func($this->onComplete, $session, $formData);
             }
 
             return UssdResponse::end('Form completed successfully!');

@@ -217,7 +217,7 @@ class FormMenuTest extends TestCase
         $menu = new FormMenu('Form', [
             'name' => ['prompt' => 'Enter name:'],
             'age' => ['prompt' => 'Enter age:'],
-        ], function ($formData, $session, $framework) use (&$completedData) {
+        ], function ($session, $formData) use (&$completedData) {
             $completedData = $formData;
 
             return UssdResponse::end('Done');
