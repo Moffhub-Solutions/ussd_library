@@ -33,6 +33,7 @@ use Moffhub\Ussd\Security\UssdAuditLogger;
 use Moffhub\Ussd\Security\UssdInputSanitizer;
 use Moffhub\Ussd\Security\UssdRateLimiter;
 use Moffhub\Ussd\Services\UssdDatabaseService;
+use Moffhub\Ussd\Support\UssdConfig;
 
 /**
  * USSD Framework - Main Orchestrator.
@@ -397,6 +398,15 @@ class UssdFramework
         }
 
         return data_get($this->config, $key, $default);
+    }
+
+    /**
+     * A typed, immutable view over the config. Additive: getConfig() still
+     * returns the raw array.
+     */
+    public function config(): UssdConfig
+    {
+        return UssdConfig::fromArray($this->config);
     }
 
     public function getCurrentMenuPublic(): UssdMenuInterface

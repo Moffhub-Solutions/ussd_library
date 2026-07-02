@@ -5,10 +5,11 @@ namespace Moffhub\Ussd;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Moffhub\Ussd\Interfaces\SessionStoreInterface;
 use Moffhub\Ussd\Security\SessionEncryptor;
+use Moffhub\Ussd\Session\CacheSessionStore;
 
 /**
  * USSD Session Manager.
@@ -50,6 +51,8 @@ class UssdSession
 
     protected ?SessionEncryptor $encryptor = null;
 
+    protected SessionStoreInterface $store;
+
     /**
      * Create a new USSD session.
      *
@@ -74,6 +77,13 @@ class UssdSession
         $this->cacheKey = ($this->config['session_prefix'] ?? 'ussd_session_').$this->phoneNumber;
         $this->lastAccessTime = Carbon::now();
 
+        // Default to the cache-backed store; an app can bind its own
+        // SessionStoreInterface in the container to change where live session
+        // state lives, without any change to this class's behaviour.
+        $this->store = (function_exists('app') && app()->bound(SessionStoreInterface::class))
+            ? app(SessionStoreInterface::class)
+            : new CacheSessionStore;
+
         $this->loadOrInitializeSession();
     }
 
@@ -87,9 +97,9 @@ class UssdSession
 
     protected function loadOrInitializeSession(): void
     {
-        $existingData = Cache::get($this->cacheKey);
+        $existingData = $this->store->get($this->cacheKey);
 
-        if ($existingData && is_array($existingData)) {
+        if ($existingData !== null && $existingData !== []) {
             $this->data = $this->decryptData($existingData);
             $this->initializeEnhancedData();
             Log::debug('UnifiedUssdSession: Loaded existing session', [
@@ -734,15 +744,15 @@ class UssdSession
 
     public function exists(): bool
     {
-        $exists = Cache::has($this->cacheKey);
+        $exists = $this->store->has($this->cacheKey);
 
         if ($exists) {
-            $cachedData = Cache::get($this->cacheKey);
+            $cachedData = $this->store->get($this->cacheKey);
             if (! is_array($cachedData)) {
                 Log::warning('UnifiedUssdSession: Invalid cached session data, cleaning up', [
                     'phone' => $this->phoneNumber,
                 ]);
-                Cache::forget($this->cacheKey);
+                $this->store->forget($this->cacheKey);
 
                 return false;
             }
@@ -767,7 +777,7 @@ class UssdSession
 
             $timeout = (int) ($this->config['session']['timeout'] ?? $this->config['session_timeout'] ?? 300);
             $dataToSave = $this->encryptData($this->data);
-            Cache::put($this->cacheKey, $dataToSave, $timeout);
+            $this->store->put($this->cacheKey, $dataToSave, $timeout);
 
             $this->saveToUserSessionsTable();
 
@@ -881,7 +891,7 @@ class UssdSession
 
     public function destroy(): void
     {
-        Cache::forget($this->cacheKey);
+        $this->store->forget($this->cacheKey);
 
         $this->addInteractionHistory('session_destroyed');
 

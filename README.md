@@ -702,11 +702,17 @@ $framework->addHook('on_error', function (\Throwable $e) { /* report */ });
 
 ## Swapping components
 
-Rate limiter, input sanitizer and audit logger resolve from the container. Bind
-your own to replace the default without forking:
+Rate limiter, input sanitizer, audit logger and the session store resolve from
+the container. Bind your own to replace the default without forking:
 
 ```php
-app()->bind(\Moffhub\Ussd\Interfaces\RateLimiterInterface::class, MyRateLimiter::class);
+use Moffhub\Ussd\Interfaces\RateLimiterInterface;
+use Moffhub\Ussd\Interfaces\SessionStoreInterface;
+
+app()->bind(RateLimiterInterface::class, MyRateLimiter::class);
+
+// Change where live session state is held (default: CacheSessionStore).
+app()->bind(SessionStoreInterface::class, MyRedisSessionStore::class);
 ```
 
 Or via the builder:
@@ -717,6 +723,18 @@ UssdBuilder::create()
     ->inputSanitizer(new MyInputSanitizer())
     ->provider(new MyProvider())
     ->build();
+```
+
+## Typed config access
+
+`getConfig()` still returns the raw array. `config()` additionally gives a typed,
+immutable view with dot-notation and a recursive `merge()` (so a partial override
+never wipes sibling keys):
+
+```php
+$framework->config()->deduplicationWindow();          // int, default 5
+$framework->config()->get('security.rate_limiting');  // dot-notation
+$merged = $framework->config()->merge(['security' => ['audit_logging' => false]]);
 ```
 
 ## Metrics
