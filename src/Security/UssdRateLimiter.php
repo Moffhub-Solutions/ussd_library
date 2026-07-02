@@ -10,7 +10,9 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Moffhub\Ussd\Interfaces\AccessListProviderInterface;
+use Moffhub\Ussd\Interfaces\RateLimiterInterface;
 use Moffhub\Ussd\Services\UssdDatabaseService;
+use Throwable;
 
 /**
  * USSD Rate Limiter.
@@ -22,7 +24,7 @@ use Moffhub\Ussd\Services\UssdDatabaseService;
  * - Automatic blocking after violations
  * - Manual block/unblock operations
  */
-class UssdRateLimiter
+class UssdRateLimiter implements RateLimiterInterface
 {
     protected array $config = [];
 
@@ -35,9 +37,14 @@ class UssdRateLimiter
     public function __construct(array $config = [])
     {
         $this->config = array_merge([
-            'max_requests_per_minute' => 10,
-            'max_requests_per_hour' => 100,
-            'max_requests_per_day' => 500,
+            // Defaults tuned for a real interactive menu (multiple steps per
+            // session), not a request-per-transaction API. The framework passes
+            // config/ussd.php's rate_limiting.* block in via $config; kept out of
+            // the constructor so a directly-constructed limiter stays a pure unit
+            // (no hidden dependency on global config).
+            'max_requests_per_minute' => 60,
+            'max_requests_per_hour' => 600,
+            'max_requests_per_day' => 3000,
             'blocked_duration' => 300, // 5 minutes
             'whitelist' => [],
             'blacklist' => [],
@@ -356,9 +363,19 @@ class UssdRateLimiter
             return true;
         }
 
-        // Check database provider if available
+        // Check database provider if available. Fail open (not whitelisted) if the
+        // backing store is unavailable (e.g. the table has not been migrated), so a
+        // misconfiguration degrades rather than taking down the whole USSD flow.
         if ($this->accessListProvider instanceof AccessListProviderInterface) {
-            return $this->accessListProvider->isWhitelisted($phoneNumber);
+            try {
+                return $this->accessListProvider->isWhitelisted($phoneNumber);
+            } catch (Throwable $e) {
+                Log::warning('USSD: whitelist lookup failed, treating as not whitelisted', [
+                    'error' => $e->getMessage(),
+                ]);
+
+                return false;
+            }
         }
 
         return false;
@@ -371,9 +388,19 @@ class UssdRateLimiter
             return true;
         }
 
-        // Check database provider if available
+        // Check database provider if available. Fail open (not blacklisted) if the
+        // backing store is unavailable, so a misconfiguration does not block every
+        // caller (and does not crash the request path).
         if ($this->accessListProvider instanceof AccessListProviderInterface) {
-            return $this->accessListProvider->isBlacklisted($phoneNumber);
+            try {
+                return $this->accessListProvider->isBlacklisted($phoneNumber);
+            } catch (Throwable $e) {
+                Log::warning('USSD: blacklist lookup failed, treating as not blacklisted', [
+                    'error' => $e->getMessage(),
+                ]);
+
+                return false;
+            }
         }
 
         return false;

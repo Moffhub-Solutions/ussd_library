@@ -6,8 +6,9 @@ namespace Moffhub\Ussd\Security;
 
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
+use Moffhub\Ussd\Interfaces\InputSanitizerInterface;
 
-class UssdInputSanitizer
+class UssdInputSanitizer implements InputSanitizerInterface
 {
     protected array $config;
 
@@ -222,6 +223,12 @@ class UssdInputSanitizer
         $reasons = [];
 
         $input = is_scalar($input) ? trim($input) : '';
+
+        // The initial USSD request carries empty input (the first dial). That is a
+        // normal, valid state, not suspicious.
+        if ($input === '') {
+            return ['valid' => true, 'reasons' => []];
+        }
 
         if (! preg_match('/^[a-zA-Z0-9\*\#\s\-\.]+$/', $input)) {
             $reasons[] = 'Contains invalid characters for USSD input';

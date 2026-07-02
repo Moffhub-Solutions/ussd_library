@@ -3,6 +3,9 @@
 namespace Moffhub\Ussd\Builders;
 
 use Closure;
+use Moffhub\Ussd\Interfaces\InputSanitizerInterface;
+use Moffhub\Ussd\Interfaces\RateLimiterInterface;
+use Moffhub\Ussd\Interfaces\UssdProviderInterface;
 use Moffhub\Ussd\Menus\ConditionalMenu;
 use Moffhub\Ussd\Menus\PaginatedMenu;
 use Moffhub\Ussd\Menus\SearchablePaginatedMenu;
@@ -169,7 +172,7 @@ class UssdBuilder
     public function configureSession(array $config): static
     {
         $currentConfig = $this->framework?->getConfig();
-        $mergedConfig = array_merge($currentConfig, $config);
+        $mergedConfig = array_replace_recursive($currentConfig, $config);
         if ($this->framework instanceof UssdFramework) {
             $reflection = new \ReflectionClass($this->framework);
             $configProperty = $reflection->getProperty('config');
@@ -208,10 +211,45 @@ class UssdBuilder
         return $this->configureSession(['navigation' => $navigationConfig]);
     }
 
+    /**
+     * Use a custom rate limiter implementation.
+     */
+    public function rateLimiter(RateLimiterInterface $rateLimiter): static
+    {
+        $this->framework?->setRateLimiter($rateLimiter);
+
+        return $this;
+    }
+
+    /**
+     * Use a custom input sanitizer implementation.
+     */
+    public function inputSanitizer(InputSanitizerInterface $inputSanitizer): static
+    {
+        $this->framework?->setInputSanitizer($inputSanitizer);
+
+        return $this;
+    }
+
+    /**
+     * Use a specific USSD provider adapter.
+     */
+    public function provider(UssdProviderInterface $provider): static
+    {
+        $this->framework?->setProvider($provider);
+
+        return $this;
+    }
+
     public function build(): UssdFramework
     {
         if ($this->framework instanceof UssdFramework) {
             $this->framework->registerMenus($this->menus);
+
+            // Fail fast on navigation typos/renames instead of at runtime.
+            if ((bool) ($this->framework->getConfig()['validate_menu_references'] ?? true)) {
+                $this->framework->validateMenuReferences();
+            }
 
             return $this->framework;
         }

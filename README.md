@@ -652,6 +652,94 @@ $framework = new UssdFramework([
 ]);
 ```
 
+### Publishing the config
+
+```bash
+php artisan vendor:publish --tag=ussd-config
+```
+
+This writes `config/ussd.php`. The published file is the authoritative control
+surface: framework defaults are deep-merged with `config('ussd')` and then with
+any array passed to `new UssdFramework([...])` (nearest wins, nested blocks merge
+recursively rather than replacing wholesale).
+
+### Config reference (selected keys)
+
+| Key | Env var | Default | Purpose |
+| --- | --- | --- | --- |
+| `debug` | `USSD_DEBUG` | `false` | Rethrow menu exceptions instead of the generic error (dev/test). |
+| `validate_menu_references` | `USSD_VALIDATE_MENU_REFERENCES` | `true` | `UssdBuilder::build()` fails fast on navigation to an unregistered menu. |
+| `deduplication.enabled` | `USSD_DEDUPE_ENABLED` | `true` | Replay the cached response for a retried `(session, input)`. |
+| `deduplication.window` | `USSD_DEDUPE_WINDOW` | `5` | Dedupe window, in seconds. |
+| `session_timeout` | `USSD_SESSION_TIMEOUT` | `300` | Inactivity (seconds) before a session expires; also the sweeper's default. |
+| `security.rate_limiting` | `USSD_RATE_LIMITING_ENABLED` | `true` | Enable the rate limiter. |
+| `rate_limiting.max_requests_per_minute` | `USSD_RATE_LIMIT_PER_MINUTE` | `60` | Per-minute request cap (tuned for interactive menus). |
+| `rate_limiting.max_requests_per_hour` | `USSD_RATE_LIMIT_PER_HOUR` | `600` | Per-hour request cap. |
+| `rate_limiting.max_requests_per_day` | `USSD_RATE_LIMIT_PER_DAY` | `3000` | Per-day request cap. |
+| `rate_limiting.use_database_lists` | `USSD_RATE_LIMIT_USE_DATABASE_LISTS` | `true` | Use the DB-backed whitelist/blacklist (needs the `ussd_access_lists` table). |
+| `database.enabled` | `USSD_DATABASE_ENABLED` | `true` | Enable the database layer (sessions, analytics, stats). |
+
+### Session tables
+
+Two tables, different jobs:
+
+- **`ussd_user_sessions`** is the runtime session store: one row per live/finished
+  session (menu, session data, activity timestamps, completion). This is what the
+  cleanup and sweeper commands operate on, and what you query for live sessions.
+- **`ussd_sessions`** is used by access-management/admin tooling, not the normal
+  request path, so it is empty in a plain menu deployment. If you are looking for
+  "where are my sessions", it is `ussd_user_sessions`.
+
+## Debugging: surface the real error
+
+By default the framework catches menu exceptions and returns a generic message.
+Set `debug` (or `USSD_DEBUG=true`) to rethrow the underlying exception so you see
+the real cause in dev/test. The `on_error` hook fires either way:
+
+```php
+$framework->addHook('on_error', function (\Throwable $e) { /* report */ });
+```
+
+## Swapping components
+
+Rate limiter, input sanitizer and audit logger resolve from the container. Bind
+your own to replace the default without forking:
+
+```php
+app()->bind(\Moffhub\Ussd\Interfaces\RateLimiterInterface::class, MyRateLimiter::class);
+```
+
+Or via the builder:
+
+```php
+UssdBuilder::create()
+    ->rateLimiter(new MyRateLimiter())
+    ->inputSanitizer(new MyInputSanitizer())
+    ->provider(new MyProvider())
+    ->build();
+```
+
+## Metrics
+
+Bind `MetricsRecorderInterface` to receive funnel metrics (menu entered,
+completed, abandoned, dwell). Everything is keyed by menu only (never by phone
+or session) to keep cardinality bounded. The default is a no-op.
+
+## Testing menus
+
+`UssdTester` drives a session without a gateway and with test-friendly defaults:
+
+```php
+use Moffhub\Ussd\Testing\UssdTester;
+
+UssdTester::fake(['default_menu' => 'main'])
+    ->register('main', $mainMenu)
+    ->register('airtime', $airtimeMenu)
+    ->drive(['3', '1'])          // dial, then send each input
+    ->assertEnded()
+    ->assertSee('successful');
+```
+
 ## Facade
 
 Use the `Ussd` facade for convenient access:
@@ -766,9 +854,17 @@ Event::listen(FormSubmitted::class, function (FormSubmitted $event) {
 ## Artisan Commands
 
 ```bash
-# Clean up expired sessions
+# Clean up expired sessions (delete old rows beyond retention)
 php artisan ussd:cleanup-sessions --older-than=24h
 php artisan ussd:cleanup-sessions --dry-run
+
+# Finalize abandoned sessions: record drop-off, emit SessionExpired, mark ended.
+# Schedule this (e.g. every minute) so abandonment is measurable from events.
+php artisan ussd:sweep-sessions
+php artisan ussd:sweep-sessions --timeout=180 --dry-run
+
+# Interactive local simulator (walk the menu in the terminal, no phone needed)
+php artisan ussd:simulate --phone=254700000000 --provider=safaricom
 
 # List active sessions
 php artisan ussd:list-sessions

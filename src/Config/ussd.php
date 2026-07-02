@@ -22,6 +22,21 @@ return [
     // Enable/disable the USSD framework
     'enabled' => env('USSD_ENABLED', true),
 
+    // When true, menu exceptions are rethrown instead of masked behind the
+    // generic "Service temporarily unavailable" response. Enable in dev/test.
+    'debug' => env('USSD_DEBUG', false),
+
+    // When true, UssdBuilder::build() asserts every declared navigation target
+    // resolves to a registered menu, failing fast on typos and renames.
+    'validate_menu_references' => env('USSD_VALIDATE_MENU_REFERENCES', true),
+
+    // Duplicate-request dedupe: replay the cached response when the same
+    // (session, input) arrives again within `window` seconds (a gateway retry).
+    'deduplication' => [
+        'enabled' => env('USSD_DEDUPE_ENABLED', true),
+        'window' => env('USSD_DEDUPE_WINDOW', 5),
+    ],
+
     // Default menu to display when session starts
     'default_menu' => env('USSD_DEFAULT_MENU', 'main'),
 
@@ -148,9 +163,9 @@ return [
     */
 
     'rate_limiting' => [
-        'max_requests_per_minute' => env('USSD_RATE_LIMIT_PER_MINUTE', 10),
-        'max_requests_per_hour' => env('USSD_RATE_LIMIT_PER_HOUR', 100),
-        'max_requests_per_day' => env('USSD_RATE_LIMIT_PER_DAY', 500),
+        'max_requests_per_minute' => env('USSD_RATE_LIMIT_PER_MINUTE', 60),
+        'max_requests_per_hour' => env('USSD_RATE_LIMIT_PER_HOUR', 600),
+        'max_requests_per_day' => env('USSD_RATE_LIMIT_PER_DAY', 3000),
 
         // Use database-backed whitelist/blacklist
         'use_database_lists' => env('USSD_RATE_LIMIT_USE_DATABASE_LISTS', true),

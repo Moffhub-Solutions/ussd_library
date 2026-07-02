@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Moffhub\Ussd\Menus;
 
+use Moffhub\Ussd\Actions\NavigateAction;
 use Moffhub\Ussd\Interfaces\ActionInterface;
+use Moffhub\Ussd\Interfaces\DeclaresNavigationTargets;
 use Moffhub\Ussd\UssdResponse;
 use Moffhub\Ussd\UssdSession;
 
-class SimpleMenu extends UssdMenu
+class SimpleMenu extends UssdMenu implements DeclaresNavigationTargets
 {
     protected string $title;
 
@@ -78,5 +80,25 @@ class SimpleMenu extends UssdMenu
         $this->footer = $footer;
 
         return $this;
+    }
+
+    /**
+     * Declared navigation targets: the menus reached via NavigateAction options.
+     * Targets buried in closures are opaque and cannot be reported here.
+     *
+     * @return array<int, string>
+     */
+    #[\Override]
+    public function navigationTargets(): array
+    {
+        $targets = [];
+
+        foreach ($this->actions as $action) {
+            if ($action instanceof NavigateAction) {
+                $targets[] = $action->getMenuName();
+            }
+        }
+
+        return $targets;
     }
 }

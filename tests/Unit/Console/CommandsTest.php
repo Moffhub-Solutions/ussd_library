@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Moffhub\Ussd\Tests\Unit\Console;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Testing\PendingCommand;
+use Moffhub\Ussd\Events\SessionExpired;
 use Moffhub\Ussd\Tests\TestCase;
 
 class CommandsTest extends TestCase
@@ -102,6 +104,65 @@ class CommandsTest extends TestCase
         $this->runArtisan('ussd:cleanup-sessions', ['--older-than' => 'invalid'])
             ->expectsOutputToContain('Invalid duration format')
             ->assertExitCode(1);
+    }
+
+    // SweepSessionsCommand tests
+
+    private function insertSession(string $sessionId, mixed $lastActivity, bool $completed = false, mixed $endedAt = null): void
+    {
+        DB::table('ussd_user_sessions')->insert([
+            'session_id' => $sessionId,
+            'phone_number' => '+254712345678',
+            'current_menu' => 'main',
+            'session_data' => '{}',
+            'started_at' => $lastActivity,
+            'last_activity' => $lastActivity,
+            'ended_at' => $endedAt,
+            'total_interactions' => 1,
+            'user_journey' => '[]',
+            'completed' => $completed,
+            'created_at' => $lastActivity,
+            'updated_at' => $lastActivity,
+        ]);
+    }
+
+    public function test_sweep_finalizes_abandoned_session(): void
+    {
+        Event::fake([SessionExpired::class]);
+
+        $this->insertSession('abandoned', now()->subHour());
+
+        $this->runArtisan('ussd:sweep-sessions', ['--timeout' => 300])
+            ->expectsOutputToContain('Swept 1 abandoned session(s)')
+            ->assertExitCode(0);
+
+        Event::assertDispatched(SessionExpired::class, fn (SessionExpired $e): bool => $e->sessionId === 'abandoned' && $e->lastMenu === 'main');
+
+        // Marked ended and drop-off recorded.
+        $this->assertNotNull(DB::table('ussd_user_sessions')->where('session_id', 'abandoned')->value('ended_at'));
+        $this->assertDatabaseHas('ussd_menu_statistics', ['menu_name' => 'main', 'drop_off_count' => 1]);
+    }
+
+    public function test_sweep_ignores_recent_and_completed_sessions(): void
+    {
+        $this->insertSession('recent', now());
+        $this->insertSession('done', now()->subHour(), completed: true);
+        $this->insertSession('already_ended', now()->subHour(), endedAt: now()->subHour());
+
+        $this->runArtisan('ussd:sweep-sessions', ['--timeout' => 300])
+            ->expectsOutputToContain('No abandoned sessions to sweep')
+            ->assertExitCode(0);
+    }
+
+    public function test_sweep_dry_run_does_not_finalize(): void
+    {
+        $this->insertSession('abandoned', now()->subHour());
+
+        $this->runArtisan('ussd:sweep-sessions', ['--timeout' => 300, '--dry-run' => true])
+            ->expectsOutputToContain('Would finalize 1 abandoned session(s)')
+            ->assertExitCode(0);
+
+        $this->assertNull(DB::table('ussd_user_sessions')->where('session_id', 'abandoned')->value('ended_at'));
     }
 
     // ListSessionsCommand tests

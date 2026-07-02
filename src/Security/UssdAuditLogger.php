@@ -8,10 +8,11 @@ use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Moffhub\Ussd\Interfaces\AuditLoggerInterface;
 use Moffhub\Ussd\Services\UssdDatabaseService;
 use Throwable;
 
-class UssdAuditLogger
+class UssdAuditLogger implements AuditLoggerInterface
 {
     protected array $config;
 

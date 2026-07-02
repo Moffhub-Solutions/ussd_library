@@ -19,9 +19,15 @@ use Moffhub\Ussd\Events\SessionEnded;
 use Moffhub\Ussd\Events\SessionExpired;
 use Moffhub\Ussd\Events\SessionResumed;
 use Moffhub\Ussd\Events\SessionStarted;
+use Moffhub\Ussd\Interfaces\AuditLoggerInterface;
+use Moffhub\Ussd\Interfaces\DeclaresNavigationTargets;
+use Moffhub\Ussd\Interfaces\InputSanitizerInterface;
 use Moffhub\Ussd\Interfaces\MenuNameInterface;
+use Moffhub\Ussd\Interfaces\MetricsRecorderInterface;
+use Moffhub\Ussd\Interfaces\RateLimiterInterface;
 use Moffhub\Ussd\Interfaces\UssdMenuInterface;
 use Moffhub\Ussd\Interfaces\UssdProviderInterface;
+use Moffhub\Ussd\Metrics\NullMetricsRecorder;
 use Moffhub\Ussd\Providers\ProviderFactory;
 use Moffhub\Ussd\Security\UssdAuditLogger;
 use Moffhub\Ussd\Security\UssdInputSanitizer;
@@ -51,7 +57,7 @@ class UssdFramework
 {
     protected ?UssdAnalytics $analytics = null;
 
-    protected ?UssdAuditLogger $auditLogger = null;
+    protected ?AuditLoggerInterface $auditLogger = null;
 
     protected ?UssdCacheManager $cacheManager = null;
 
@@ -64,14 +70,16 @@ class UssdFramework
     /** @var array<string, array<callable>> */
     protected array $hooks = [];
 
-    protected ?UssdInputSanitizer $inputSanitizer = null;
+    protected ?InputSanitizerInterface $inputSanitizer = null;
 
     /** @var array<string, UssdMenuInterface> */
     protected array $menus = [];
 
     protected array $performanceMetrics = [];
 
-    protected ?UssdRateLimiter $rateLimiter = null;
+    protected ?RateLimiterInterface $rateLimiter = null;
+
+    protected MetricsRecorderInterface $metrics;
 
     protected Request $request;
 
@@ -98,7 +106,17 @@ class UssdFramework
 
     protected function mergeDefaultConfig(array $config): array
     {
-        return array_merge([
+        $defaults = [
+            // When true, process() rethrows menu exceptions instead of masking
+            // them behind the generic "Service temporarily unavailable" END.
+            // Keep false in production; enable in dev/test to see the real cause.
+            // (The on_error hook fires either way, see addHook('on_error', ...).)
+            'debug' => false,
+
+            // When true, UssdBuilder::build() asserts every declared navigation
+            // target resolves to a registered menu (fails fast on typos/renames).
+            'validate_menu_references' => true,
+
             // Basic framework config
             'session_timeout' => 300,
             'session_prefix' => 'ussd_session_',
@@ -123,6 +141,11 @@ class UssdFramework
             'cleanup_interval' => 3600,
             'enable_session_analytics' => true,
 
+            // Duplicate-request dedupe: if the same (session, input) arrives again
+            // within `window` seconds (a gateway retry), replay the cached response
+            // instead of reprocessing. Matters once steps have side effects (STK push).
+            'deduplication' => ['enabled' => true, 'window' => 5],
+
             // Component configuration
             'cache' => ['enabled' => true, 'menu_content_ttl' => 3600, 'data_provider_ttl' => 600],
             'security' => ['rate_limiting' => true, 'input_sanitization' => true, 'audit_logging' => true],
@@ -146,7 +169,9 @@ class UssdFramework
                 'country_code' => '254',
                 'max_message_length' => 182,
             ],
-        ], $config);
+        ];
+
+        return array_replace_recursive($defaults, (array) config('ussd', []), $config);
     }
 
     protected function initializeComponents(): void
@@ -160,19 +185,28 @@ class UssdFramework
         }
 
         if ($this->config['security']['rate_limiting']) {
-            $this->rateLimiter = new UssdRateLimiter;
-            if ($this->databaseService instanceof UssdDatabaseService) {
+            $this->rateLimiter = $this->resolveComponent(
+                RateLimiterInterface::class,
+                fn (): UssdRateLimiter => new UssdRateLimiter($this->config['rate_limiting'] ?? [])
+            );
+            if ($this->databaseService instanceof UssdDatabaseService && method_exists($this->rateLimiter, 'setDatabaseService')) {
                 $this->rateLimiter->setDatabaseService($this->databaseService);
             }
         }
 
         if ($this->config['security']['input_sanitization']) {
-            $this->inputSanitizer = new UssdInputSanitizer;
+            $this->inputSanitizer = $this->resolveComponent(
+                InputSanitizerInterface::class,
+                fn (): UssdInputSanitizer => new UssdInputSanitizer
+            );
         }
 
         if ($this->config['security']['audit_logging']) {
-            $this->auditLogger = new UssdAuditLogger;
-            if ($this->databaseService instanceof UssdDatabaseService) {
+            $this->auditLogger = $this->resolveComponent(
+                AuditLoggerInterface::class,
+                fn (): UssdAuditLogger => new UssdAuditLogger
+            );
+            if ($this->databaseService instanceof UssdDatabaseService && method_exists($this->auditLogger, 'setDatabaseService')) {
                 $this->auditLogger->setDatabaseService($this->databaseService);
             }
         }
@@ -183,6 +217,87 @@ class UssdFramework
                 $this->analytics->setDatabaseService($this->databaseService);
             }
         }
+
+        // Always present (null-object default); bind MetricsRecorderInterface to override.
+        $this->metrics = $this->resolveComponent(
+            MetricsRecorderInterface::class,
+            fn (): NullMetricsRecorder => new NullMetricsRecorder
+        );
+    }
+
+    /**
+     * Cache key for duplicate-request dedupe, or null if dedupe should not apply
+     * (disabled, or no session id to key on).
+     */
+    protected function deduplicationKey(string $phoneNumber, string $sessionId, string $userInput): ?string
+    {
+        if (! ($this->config['deduplication']['enabled'] ?? true)) {
+            return null;
+        }
+
+        if ($sessionId === '') {
+            return null;
+        }
+
+        return 'ussd_dedupe_'.sha1($phoneNumber.'|'.$sessionId.'|'.$userInput);
+    }
+
+    /**
+     * Resolve a swappable component: use an app-provided binding if one exists,
+     * otherwise fall back to the config-aware default. This lets an app bind its
+     * own implementation without losing this instance's per-instance config.
+     *
+     * @template T of object
+     *
+     * @param  class-string<T>  $abstract
+     * @param  callable(): T  $default
+     * @return T
+     */
+    protected function resolveComponent(string $abstract, callable $default): object
+    {
+        if (function_exists('app') && app()->bound($abstract)) {
+            return app($abstract);
+        }
+
+        return $default();
+    }
+
+    /**
+     * The metrics recorder (a no-op unless MetricsRecorderInterface is bound).
+     */
+    public function metrics(): MetricsRecorderInterface
+    {
+        return $this->metrics;
+    }
+
+    /**
+     * Override the rate limiter (e.g. a custom RateLimiterInterface).
+     */
+    public function setRateLimiter(?RateLimiterInterface $rateLimiter): self
+    {
+        $this->rateLimiter = $rateLimiter;
+
+        return $this;
+    }
+
+    /**
+     * Override the input sanitizer.
+     */
+    public function setInputSanitizer(?InputSanitizerInterface $inputSanitizer): self
+    {
+        $this->inputSanitizer = $inputSanitizer;
+
+        return $this;
+    }
+
+    /**
+     * Override the audit logger.
+     */
+    public function setAuditLogger(?AuditLoggerInterface $auditLogger): self
+    {
+        $this->auditLogger = $auditLogger;
+
+        return $this;
     }
 
     protected function registerDefaultSessionHandlers(): void
@@ -300,9 +415,9 @@ class UssdFramework
             'status' => 'healthy',
             'components' => [
                 'cache' => $this->cacheManager instanceof UssdCacheManager ? 'enabled' : 'disabled',
-                'rate_limiter' => $this->rateLimiter instanceof UssdRateLimiter ? 'enabled' : 'disabled',
-                'input_sanitizer' => $this->inputSanitizer instanceof UssdInputSanitizer ? 'enabled' : 'disabled',
-                'audit_logger' => $this->auditLogger instanceof UssdAuditLogger ? 'enabled' : 'disabled',
+                'rate_limiter' => $this->rateLimiter instanceof RateLimiterInterface ? 'enabled' : 'disabled',
+                'input_sanitizer' => $this->inputSanitizer instanceof InputSanitizerInterface ? 'enabled' : 'disabled',
+                'audit_logger' => $this->auditLogger instanceof AuditLoggerInterface ? 'enabled' : 'disabled',
                 'analytics' => $this->analytics instanceof UssdAnalytics ? 'enabled' : 'disabled',
             ],
             'session_management' => [
@@ -332,6 +447,22 @@ class UssdFramework
         $phoneNumber = $this->provider->getPhoneNumber($request);
         $userInput = $this->provider->getUserInput($request);
         $requestStartTime = microtime(true);
+
+        // Serve a gateway retry (same session + input, within the window) from
+        // cache instead of reprocessing, so side-effecting steps run once.
+        $dedupeKey = $this->deduplicationKey($phoneNumber, $this->provider->getSessionId($request) ?? '', $userInput);
+        if ($dedupeKey !== null) {
+            $cached = Cache::get($dedupeKey);
+            if ($cached instanceof UssdResponse) {
+                Log::debug('USSD: duplicate request served from dedupe cache', [
+                    'phone' => $phoneNumber,
+                    'input' => $userInput,
+                ]);
+
+                return $cached;
+            }
+        }
+
         try {
 
             if ($this->rateLimiter && ! $this->rateLimiter->allow($phoneNumber)) {
@@ -341,7 +472,7 @@ class UssdFramework
                     UssdResponse::END);
             }
 
-            if ($this->inputSanitizer instanceof UssdInputSanitizer) {
+            if ($this->inputSanitizer instanceof InputSanitizerInterface) {
                 $sanitizationResult = $this->inputSanitizer->sanitize($userInput, 'menu_option');
                 if (! $sanitizationResult['valid'] && $sanitizationResult['suspicious']) {
                     $this->auditLogger?->logSecurity('suspicious_input', $phoneNumber, [
@@ -392,6 +523,21 @@ class UssdFramework
                 'cached' => false,
             ]);
 
+            $this->metrics->menuEntered($menuName);
+            $this->metrics->dwell($menuName, microtime(true) - $requestStartTime);
+
+            // Roll the interaction into the per-menu/day aggregate. access_count is
+            // bumped every request; completion_count only on a terminal END response.
+            // Drop-off is not knowable inline (an abandoner never sends another
+            // request), so it is left to the session sweeper.
+            $this->databaseService?->updateMenuStatistics(
+                $menuName,
+                $userInput !== '' ? $userInput : null,
+                $response->isEnd(),
+                false,
+                $this->session->getSessionDuration(),
+            );
+
             $this->auditLogger?->logAction('menu_interaction', $phoneNumber, [
                 'menu' => $menuName,
                 'input' => $userInput,
@@ -407,6 +553,8 @@ class UssdFramework
             }
 
             if ($response->isEnd()) {
+                $this->metrics->menuCompleted($menuName);
+
                 $this->analytics?->trackSession($phoneNumber, 'end', [
                     'final_menu' => $menuName,
                     'total_interactions' => $this->session->get('interaction_count', 0),
@@ -425,10 +573,21 @@ class UssdFramework
                 );
             }
 
+            if ($dedupeKey !== null) {
+                Cache::put($dedupeKey, $response, (int) ($this->config['deduplication']['window'] ?? 5));
+            }
+
             return $response;
 
         } catch (Exception $e) {
             $this->handleError($e, $phoneNumber, $userInput);
+
+            // handleError has logged and fired the on_error hook. In debug mode
+            // surface the real cause instead of masking it, so dev/test do not
+            // have to reconstruct it from logs.
+            if ($this->config['debug'] ?? false) {
+                throw $e;
+            }
 
             return new UssdResponse('END Service temporarily unavailable. Please try again.', UssdResponse::END);
         } finally {
@@ -760,6 +919,41 @@ class UssdFramework
         return $name;
     }
 
+    /**
+     * Assert every declared navigation target resolves to a registered menu.
+     *
+     * Catches typos and renames at build time (a clear exception) instead of a
+     * blank screen or generic error at runtime. Only inspects menus that declare
+     * their targets (DeclaresNavigationTargets); navigation inside closures is
+     * opaque and not checked.
+     *
+     * @throws \InvalidArgumentException if any target is missing.
+     */
+    public function validateMenuReferences(): void
+    {
+        $problems = [];
+
+        foreach ($this->menus as $menuName => $menu) {
+            if (! $menu instanceof DeclaresNavigationTargets) {
+                continue;
+            }
+
+            foreach ($menu->navigationTargets() as $target) {
+                $targetName = $this->resolveMenuName($target);
+
+                if (! $this->hasMenu($targetName)) {
+                    $problems[] = "menu '{$targetName}' referenced by '{$menuName}' but not registered";
+                }
+            }
+        }
+
+        if ($problems !== []) {
+            throw new \InvalidArgumentException(
+                'USSD menu navigation validation failed: '.implode('; ', $problems).'.'
+            );
+        }
+    }
+
     protected function buildContinuationMenu(string $message): UssdResponse
     {
         $recoveryContext = $this->session->getRecoveryContext();
@@ -831,6 +1025,12 @@ class UssdFramework
                 'menu' => $session->getCurrentMenu(),
                 'input' => $text,
             ]);
+
+            // In debug mode surface the real cause instead of the generic error,
+            // so dev/test do not have to reconstruct it from logs.
+            if ($this->config['debug'] ?? false) {
+                throw $e;
+            }
 
             return new UssdResponse('CON Service error occurred. Please try again.', UssdResponse::CONTINUE);
         }
@@ -1075,13 +1275,17 @@ class UssdFramework
 
     protected function handleError(Exception $e, string $phoneNumber, string $userInput): void
     {
-        $sessionContext = [
+        // An error can be thrown before the session is created (e.g. during
+        // session retrieval). Do not access $this->session unguarded, or the
+        // secondary "must not be accessed before initialization" error masks the
+        // real cause.
+        $sessionContext = isset($this->session) ? [
             'session_id' => $this->session->getSessionId(),
             'current_menu' => $this->session->getCurrentMenu(),
             'step' => $this->session->getStep(),
             'status' => $this->session->getStatus(),
             'is_recovered' => $this->session->isRecovered(),
-        ];
+        ] : ['session' => 'not initialized'];
 
         Log::error('Unified USSD Framework Error', [
             'error' => $e->getMessage(),
@@ -1091,7 +1295,7 @@ class UssdFramework
             'trace' => $e->getTraceAsString(),
         ]);
 
-        $this->executeHooks('on_error', [$e, $this->request, $this->session, $sessionContext]);
+        $this->executeHooks('on_error', [$e, $this->request, $this->session ?? null, $sessionContext]);
     }
 
     protected function performCleanup(float $requestStartTime, string $phoneNumber, string $userInput): void
@@ -1105,7 +1309,7 @@ class UssdFramework
             Log::warning('Slow USSD request detected', [
                 'duration_ms' => $totalTime,
                 'phone' => $phoneNumber,
-                'menu' => $this->session->getCurrentMenu(),
+                'menu' => isset($this->session) ? $this->session->getCurrentMenu() : null,
                 'input' => $userInput,
             ]);
         }
@@ -1115,7 +1319,7 @@ class UssdFramework
     {
         if ($this->config['performance']['enable_profiling']) {
             $this->analytics?->trackPerformance($action, $duration, [
-                'menu' => $this->session->getCurrentMenu(),
+                'menu' => isset($this->session) ? $this->session->getCurrentMenu() : null,
                 'memory_usage' => memory_get_usage(true),
             ]);
         }

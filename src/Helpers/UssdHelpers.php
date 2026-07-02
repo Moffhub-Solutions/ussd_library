@@ -11,6 +11,7 @@ use Moffhub\Ussd\Actions\SaveDataAction;
 use Moffhub\Ussd\DataProviders\ApiDataProvider;
 use Moffhub\Ussd\DataProviders\ArrayDataProvider;
 use Moffhub\Ussd\DataProviders\DatabaseDataProvider;
+use Moffhub\Ussd\Interfaces\MenuNameInterface;
 
 class UssdHelpers
 {
@@ -64,8 +65,10 @@ class UssdHelpers
         return $reference;
     }
 
-    public static function navigateAction(string $menuName, array $data = []): NavigateAction
-    {
+    public static function navigateAction(
+        string|MenuNameInterface|\BackedEnum $menuName,
+        array $data = []
+    ): NavigateAction {
         return new NavigateAction($menuName, $data);
     }
 

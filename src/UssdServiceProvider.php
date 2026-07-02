@@ -12,6 +12,7 @@ use Moffhub\Ussd\Console\Commands\HealthCheckCommand;
 use Moffhub\Ussd\Console\Commands\ListSessionsCommand;
 use Moffhub\Ussd\Console\Commands\ManageAccessCommand;
 use Moffhub\Ussd\Console\Commands\SimulateCommand;
+use Moffhub\Ussd\Console\Commands\SweepSessionsCommand;
 use Moffhub\Ussd\Http\Controllers\AccessManagementController;
 use Moffhub\Ussd\Http\Middleware\UssdAuthentication;
 use Moffhub\Ussd\Http\Middleware\UssdRateLimit;
@@ -35,9 +36,15 @@ class UssdServiceProvider extends ServiceProvider
 
         if ($this->app->runningInConsole() && ! $this->app->environment('testing')) {
             if (function_exists('config_path')) {
+                // Support both the generic `config` tag and an explicit,
+                // discoverable `ussd-config` tag.
                 $this->publishes([
                     __DIR__.'/Config/ussd.php' => config_path('ussd.php'),
                 ], 'config');
+
+                $this->publishes([
+                    __DIR__.'/Config/ussd.php' => config_path('ussd.php'),
+                ], 'ussd-config');
             }
 
             if (function_exists('database_path')) {
@@ -59,6 +66,7 @@ class UssdServiceProvider extends ServiceProvider
                 ManageAccessCommand::class,
                 HealthCheckCommand::class,
                 SimulateCommand::class,
+                SweepSessionsCommand::class,
             ]);
         }
 
