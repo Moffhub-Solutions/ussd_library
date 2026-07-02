@@ -690,7 +690,7 @@ class UssdFramework
                     ->first();
 
                 if ($dbSession) {
-                    $decoded = json_decode($dbSession->session_data, true);
+                    $decoded = json_decode((string) $dbSession->session_data, true);
                     if (is_array($decoded)) {
                         $sessionData = $decoded;
                         // Re-populate cache from database

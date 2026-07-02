@@ -32,13 +32,13 @@ use PHPUnit\Framework\Assert;
  */
 final class UssdTester
 {
-    protected ?UssdResponse $lastResponse = null;
+    private ?UssdResponse $lastResponse = null;
 
     public function __construct(
-        protected UssdFramework $framework,
-        protected string $phoneNumber = '+254700000000',
-        protected string $sessionId = 'test-session',
-        protected string $serviceCode = '*123#',
+        private readonly UssdFramework $framework,
+        private string $phoneNumber = '+254700000000',
+        private string $sessionId = 'test-session',
+        private string $serviceCode = '*123#',
     ) {}
 
     /**
