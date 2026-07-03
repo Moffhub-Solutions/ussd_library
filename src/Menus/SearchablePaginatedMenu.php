@@ -63,33 +63,47 @@ class SearchablePaginatedMenu extends PaginatedMenu
 
     protected function showSearchResults(string $query, UssdSession $session): UssdResponse
     {
-        $allData = $this->getData($session);
+        // The search term is persisted in form data (see processStep), and
+        // getData() applies the filter on every page, so we simply render page
+        // one. Later pages (Next) and the selection snapshot stay filtered
+        // instead of silently reverting to the full dataset.
+        return $this->showPage(1, $session);
+    }
 
-        // A data provider may return either a bare item list or a paginator
-        // wrapper (['data' => items, 'total' => ...]). Filter the actual item
-        // list, then hand showPage() that list directly (showPage paginates the
-        // list and renders the empty message when it is empty).
-        $items = $allData['data'] ?? $allData;
-        $filteredItems = $this->filterData($items, $query);
+    /**
+     * Apply the active search filter to every page fetch. Keying the filter
+     * here (rather than swapping the provider for a single render) means paging
+     * through search results and selecting an item both operate on the filtered
+     * set consistently.
+     */
+    #[\Override]
+    protected function getData(UssdSession $session): array
+    {
+        $data = parent::getData($session);
 
-        $originalProvider = $this->dataProvider;
-        $this->dataProvider = $filteredItems;
+        $query = $session->getFormData('search_query', '');
+        if (! $this->searchable || ! is_string($query) || $query === '') {
+            return $data;
+        }
 
-        $response = $this->showPage(1, $session);
+        // A provider may return a bare item list or a wrapper (['data' => ...]).
+        // showPage() treats getData()'s return as the item list directly, so
+        // return the filtered items as a bare list (an empty list triggers the
+        // "no results" page).
+        $items = $data['data'] ?? $data;
 
-        $this->dataProvider = $originalProvider;
-
-        return $response;
+        return $this->filterData($items, $query);
     }
 
     #[\Override]
-    protected function filterData(array $data, string $query): array
+    protected function filterData(array $data, string $query, ?array $searchFields = null): array
     {
         $query = strtolower(trim($query));
+        $searchFields = $searchFields ?? $this->searchFields;
 
-        return array_filter($data, function ($item) use ($query): bool {
+        return array_filter($data, function ($item) use ($query, $searchFields): bool {
             if (is_array($item)) {
-                if (array_any($this->searchFields,
+                if (array_any($searchFields,
                     fn ($field): bool => isset($item[$field]) && str_contains(strtolower((string) $item[$field]), $query))) {
                     return true;
                 }

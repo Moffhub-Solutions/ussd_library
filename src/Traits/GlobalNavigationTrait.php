@@ -4,12 +4,29 @@ declare(strict_types=1);
 
 namespace Moffhub\Ussd\Traits;
 
-use Exception;
+use Illuminate\Support\Facades\Log;
 use Moffhub\Ussd\UssdResponse;
 use Moffhub\Ussd\UssdSession;
 
 trait GlobalNavigationTrait
 {
+    /**
+     * Log a navigation error and, in debug mode, rethrow it rather than
+     * masking it as a generic "navigation error" (which reads as "the menu
+     * didn't advance"). Mirrors UssdFramework::handle()'s debug contract.
+     */
+    protected function reportNavigationError(\Throwable $e, string $context): void
+    {
+        Log::warning("USSD: {$context} failed", [
+            'error' => $e->getMessage(),
+            'exception' => $e::class,
+        ]);
+
+        if ($this->config['debug'] ?? false) {
+            throw $e;
+        }
+    }
+
     protected function addGlobalNavigation(string $message, UssdSession $session): string
     {
         if (! $this->isGlobalNavigationEnabled()) {
@@ -137,7 +154,9 @@ trait GlobalNavigationTrait
 
             return $currentMenu->display($session);
 
-        } catch (Exception) {
+        } catch (\Throwable $e) {
+            $this->reportNavigationError($e, 'back navigation');
+
             return UssdResponse::continue('Navigation error. Please try again.');
         }
     }
@@ -155,13 +174,17 @@ trait GlobalNavigationTrait
 
             return $homeMenu->display($session);
 
-        } catch (Exception) {
+        } catch (\Throwable $e) {
+            $this->reportNavigationError($e, 'home navigation');
+
             try {
                 $defaultMenu = $this->config['default_menu'] ?? 'main';
                 $homeMenu = $this->framework->getMenu($defaultMenu);
 
                 return $homeMenu->display($session);
-            } catch (Exception) {
+            } catch (\Throwable $inner) {
+                $this->reportNavigationError($inner, 'home navigation fallback');
+
                 return UssdResponse::end('Service error. Please try again.');
             }
         }
@@ -178,7 +201,9 @@ trait GlobalNavigationTrait
 
             return true;
 
-        } catch (Exception) {
+        } catch (\Throwable $e) {
+            $this->reportNavigationError($e, "navigateTo({$menuName})");
+
             return false;
         }
     }
@@ -192,7 +217,9 @@ trait GlobalNavigationTrait
 
             return $this->framework->goBack();
 
-        } catch (Exception) {
+        } catch (\Throwable $e) {
+            $this->reportNavigationError($e, 'goBack');
+
             return false;
         }
     }

@@ -4,6 +4,7 @@ namespace Moffhub\Ussd\Menus;
 
 use Closure;
 use Exception;
+use Illuminate\Support\Facades\Log;
 use Moffhub\Ussd\Helpers\FormField;
 use Moffhub\Ussd\Interfaces\ActionInterface;
 use Moffhub\Ussd\Interfaces\UssdMenuInterface;
@@ -461,8 +462,31 @@ class UssdMenu implements UssdMenuInterface
 
             return UssdResponse::end('Form completed successfully!');
 
-        } catch (Exception) {
+        } catch (\Throwable $e) {
+            $this->reportInteractiveError($e, 'form completion (onComplete)');
+
             return UssdResponse::end('Form completion error. Please try again.');
+        }
+    }
+
+    /**
+     * Log an error caught on the interactive menu path and, in debug mode,
+     * rethrow it instead of masking it behind a generic message. Mirrors
+     * UssdFramework::handle(): a swallowed error should never silently look
+     * like "the menu didn't advance". Callers still return a user-facing
+     * fallback for production (non-debug) sessions.
+     */
+    protected function reportInteractiveError(\Throwable $e, string $context): void
+    {
+        Log::error("USSD: {$context} failed", [
+            'menu' => $this->title,
+            'type' => $this->type,
+            'error' => $e->getMessage(),
+            'exception' => $e::class,
+        ]);
+
+        if ($this->config['debug'] ?? false) {
+            throw $e;
         }
     }
 
@@ -533,6 +557,13 @@ class UssdMenu implements UssdMenuInterface
     protected function showPaginatedContent(UssdSession $session): UssdResponse
     {
         $data = $this->getProcessedData($session);
+
+        // Snapshot the ordered dataset that is about to be displayed, so the
+        // subsequent selection resolves the chosen index against exactly what
+        // the user saw. Re-deriving from a non-deterministically ordered
+        // provider at selection time could map the index to a different row.
+        $session->setMenuData(['pagination_snapshot' => $data]);
+
         $currentPage = $session->getMenuData('pagination_page', 1);
         $itemsPerPage = $this->config['items_per_page'];
         $offset = ($currentPage - 1) * $itemsPerPage;
@@ -559,7 +590,7 @@ class UssdMenu implements UssdMenuInterface
 
         $index = 1;
         foreach ($pagedData as $key => $item) {
-            $displayText = $this->formatItem($key, $item);
+            $displayText = $this->formatItem($key, $item, $currentPage);
             $message .= "{$index}. {$displayText}\n";
             $index++;
         }
@@ -584,7 +615,13 @@ class UssdMenu implements UssdMenuInterface
 
     protected function handleItemSelection(string $input, UssdSession $session): UssdResponse
     {
-        $data = $this->getProcessedData($session);
+        // Resolve against the snapshot shown to the user (see showPaginatedContent);
+        // fall back to a fresh fetch only if no snapshot is present.
+        $data = $session->getMenuData('pagination_snapshot');
+        if (! is_array($data)) {
+            $data = $this->getProcessedData($session);
+        }
+
         $currentPage = $session->getMenuData('pagination_page', 1);
         $itemsPerPage = $this->config['items_per_page'];
         $offset = ($currentPage - 1) * $itemsPerPage;
@@ -611,7 +648,7 @@ class UssdMenu implements UssdMenuInterface
             }
         }
 
-        $displayText = $this->formatItem($selectedKey, $selectedItem);
+        $displayText = $this->formatItem($selectedKey, $selectedItem, $currentPage);
 
         return UssdResponse::end("You selected: {$displayText}");
     }
@@ -731,8 +768,16 @@ class UssdMenu implements UssdMenuInterface
     {
         $data = [];
 
+        // Pass ($session, $filters) to match PaginatedMenu's data-provider
+        // contract, so a provider written for either engine works in both.
+        // Providers that declare only ($session) ignore the extra argument.
+        $filters = [
+            'search' => $session->getMenuData('search_query', ''),
+            'page' => $session->getMenuData('pagination_page', 1),
+        ];
+
         if (is_callable($this->dataProvider)) {
-            $data = ($this->dataProvider)($session);
+            $data = ($this->dataProvider)($session, $filters);
         } elseif (is_array($this->dataProvider)) {
             $data = $this->dataProvider;
         }
@@ -745,10 +790,16 @@ class UssdMenu implements UssdMenuInterface
         return $data;
     }
 
-    protected function filterData(array $data, string $query): array
+    /**
+     * @param  array<int, string>|null  $searchFields  Columns to search; defaults to the
+     *                                                  menu-level config. Field-driven callers
+     *                                                  pass the field's own search fields so a
+     *                                                  per-field `search_fields` is honored.
+     */
+    protected function filterData(array $data, string $query, ?array $searchFields = null): array
     {
         $query = strtolower(trim($query));
-        $searchFields = $this->config['search_fields'] ?? ['name'];
+        $searchFields = $searchFields ?? ($this->config['search_fields'] ?? ['name']);
         $filtered = [];
 
         foreach ($data as $key => $item) {
@@ -772,10 +823,13 @@ class UssdMenu implements UssdMenuInterface
         return $filtered;
     }
 
-    protected function formatItem(mixed $key, mixed $item): string
+    protected function formatItem(mixed $key, mixed $item, int $page = 1): string
     {
         if (is_callable($this->itemFormatter)) {
-            return ($this->itemFormatter)($key, $item);
+            // Pass ($key, $item, $page) to match PaginatedMenu's item_formatter
+            // contract, so a formatter written for either paginated engine works
+            // in both. Closures that declare fewer parameters ignore the extra.
+            return ($this->itemFormatter)($key, $item, $page);
         }
 
         if (is_array($item)) {
@@ -913,6 +967,16 @@ class UssdMenu implements UssdMenuInterface
         return $this->handleInvalidInput($input, $session);
     }
 
+    /**
+     * Session key holding the snapshot of the option set last displayed for a
+     * given field, keyed per field so concurrent fields do not clobber each
+     * other's snapshot.
+     */
+    private function fieldSnapshotKey(FormField $field): string
+    {
+        return '_options_snapshot_'.$field->getName();
+    }
+
     protected function showPaginatedFieldOptions(FormField $field, UssdSession $session): UssdResponse
     {
         $options = $field->getOptions($session);
@@ -925,9 +989,13 @@ class UssdMenu implements UssdMenuInterface
         $searchQuery = $session->getFormData('_search_query', '');
 
         if (! empty($searchQuery)) {
-            $searchFields = $field->getSearchFields();
-            $options = $this->filterData($options, $searchQuery);
+            $options = $this->filterData($options, $searchQuery, $field->getSearchFields());
         }
+
+        // Snapshot the filtered, ordered option set that is about to be shown so
+        // the selection resolves the chosen index against exactly this set, even
+        // if the options provider is non-deterministically ordered.
+        $session->setFormData($this->fieldSnapshotKey($field), $options);
 
         $currentPage = $session->getFormData('_pagination_page', 1);
         $itemsPerPage = $field->getItemsPerPage();
@@ -953,7 +1021,7 @@ class UssdMenu implements UssdMenuInterface
 
         $index = 1;
         foreach ($pagedOptions as $key => $item) {
-            $displayText = $this->formatItem($key, $item);
+            $displayText = $this->formatItem($key, $item, $currentPage);
             $message .= "{$index}. {$displayText}\n";
             $index++;
         }
@@ -978,18 +1046,22 @@ class UssdMenu implements UssdMenuInterface
 
     protected function handleFieldOptionSelection(FormField $field, string $input, UssdSession $session): UssdResponse
     {
-        $options = $field->getOptions($session);
+        // Resolve against the snapshot shown to the user (see
+        // showPaginatedFieldOptions); fall back to a fresh, re-filtered fetch
+        // only if no snapshot is present.
+        $options = $session->getFormData($this->fieldSnapshotKey($field));
 
-        // Ensure options is an array
         if (! is_array($options)) {
-            $options = [];
-        }
+            $options = $field->getOptions($session);
 
-        $searchQuery = $session->getFormData('_search_query', '');
+            if (! is_array($options)) {
+                $options = [];
+            }
 
-        if (! empty($searchQuery)) {
-            $searchFields = $field->getSearchFields();
-            $options = $this->filterData($options, $searchQuery);
+            $searchQuery = $session->getFormData('_search_query', '');
+            if (! empty($searchQuery)) {
+                $options = $this->filterData($options, $searchQuery, $field->getSearchFields());
+            }
         }
 
         $currentPage = $session->getFormData('_pagination_page', 1);
@@ -1017,6 +1089,7 @@ class UssdMenu implements UssdMenuInterface
         $session->setFormData('_form_state', 'collecting');
         $session->setFormData('_pagination_page', 1);
         $session->setFormData('_search_query', '');
+        $session->setFormData($this->fieldSnapshotKey($field), null);
 
         return $this->moveToNextField($session);
     }

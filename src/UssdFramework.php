@@ -229,8 +229,16 @@ class UssdFramework
     /**
      * Cache key for duplicate-request dedupe, or null if dedupe should not apply
      * (disabled, or no session id to key on).
+     *
+     * The key includes the session position (see sessionPosition()) so it only
+     * matches a TRUE gateway retry, i.e. the same input at the same position. A
+     * legitimately repeated input at the next step lands at a different position
+     * and therefore a different key, so it is processed instead of being served
+     * the previous step's cached response. Keying on session state (not the
+     * payload) works uniformly for accumulating (Africa's Talking / Safaricom)
+     * and stateful (MTN/Airtel) providers, which only send the current keystroke.
      */
-    protected function deduplicationKey(string $phoneNumber, string $sessionId, string $userInput): ?string
+    protected function deduplicationKey(string $phoneNumber, string $sessionId, string $userInput, string $position): ?string
     {
         if (! ($this->config['deduplication']['enabled'] ?? true)) {
             return null;
@@ -240,7 +248,21 @@ class UssdFramework
             return null;
         }
 
-        return 'ussd_dedupe_'.sha1($phoneNumber.'|'.$sessionId.'|'.$userInput);
+        return 'ussd_dedupe_'.sha1($phoneNumber.'|'.$sessionId.'|'.$position.'|'.$userInput);
+    }
+
+    /**
+     * A stable fingerprint of where the session currently is: menu step, form
+     * field index, form state and current menu. Two requests at the same
+     * position with the same input are a retry; the next step changes at least
+     * one of these components.
+     */
+    protected function sessionPosition(UssdSession $session): string
+    {
+        return $session->getStep().'|'
+            .(string) $session->getFormData('_form_field_index', '').'|'
+            .(string) $session->getFormData('_form_state', '').'|'
+            .(string) ($session->getCurrentMenu() ?? '');
     }
 
     /**
@@ -458,20 +480,10 @@ class UssdFramework
         $userInput = $this->provider->getUserInput($request);
         $requestStartTime = microtime(true);
 
-        // Serve a gateway retry (same session + input, within the window) from
-        // cache instead of reprocessing, so side-effecting steps run once.
-        $dedupeKey = $this->deduplicationKey($phoneNumber, $this->provider->getSessionId($request) ?? '', $userInput);
-        if ($dedupeKey !== null) {
-            $cached = Cache::get($dedupeKey);
-            if ($cached instanceof UssdResponse) {
-                Log::debug('USSD: duplicate request served from dedupe cache', [
-                    'phone' => $phoneNumber,
-                    'input' => $userInput,
-                ]);
-
-                return $cached;
-            }
-        }
+        // Populated after the session is loaded (see below): the dedupe key
+        // needs the session position so it matches only a true gateway retry,
+        // not a legitimately repeated input at the next step.
+        $dedupeKey = null;
 
         try {
 
@@ -497,6 +509,25 @@ class UssdFramework
             }
 
             $this->session = $this->getOrCreateSession($request);
+
+            // Serve a gateway retry (same input at the same session position,
+            // within the window) from cache instead of reprocessing, so
+            // side-effecting steps run once. Keyed with the loaded session's
+            // position so a repeated input at the next step is NOT deduped.
+            $dedupeKey = $this->deduplicationKey(
+                $phoneNumber,
+                $this->session->getSessionId(),
+                $userInput,
+                $this->sessionPosition($this->session)
+            );
+            if ($dedupeKey !== null && ($cached = Cache::get($dedupeKey)) instanceof UssdResponse) {
+                Log::debug('USSD: duplicate request served from dedupe cache', [
+                    'phone' => $phoneNumber,
+                    'input' => $userInput,
+                ]);
+
+                return $cached;
+            }
 
             if (! $this->session->exists() && $this->analytics) {
                 $this->analytics->trackSession($phoneNumber, 'start');
@@ -843,10 +874,16 @@ class UssdFramework
             foreach ($this->hooks[$event] as $callback) {
                 try {
                     call_user_func_array($callback, $params);
-                } catch (Exception $e) {
+                } catch (\Throwable $e) {
                     Log::error("Hook execution failed for event: {$event}", [
                         'error' => $e->getMessage(),
                     ]);
+
+                    // Honor the same debug contract as handle(): surface a
+                    // throwing hook in dev/test instead of silently degrading.
+                    if ($this->config['debug'] ?? false) {
+                        throw $e;
+                    }
                 }
             }
         }

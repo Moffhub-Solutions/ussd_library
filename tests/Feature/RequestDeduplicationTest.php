@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Moffhub\Ussd\Tests\Feature;
 
+use Moffhub\Ussd\Builders\FlexibleFormBuilder;
 use Moffhub\Ussd\Menus\SimpleMenu;
 use Moffhub\Ussd\Testing\UssdTester;
 use Moffhub\Ussd\Tests\TestCase;
@@ -56,5 +57,37 @@ class RequestDeduplicationTest extends TestCase
         $tester->send('1');
 
         $this->assertSame(2, $calls, 'With dedupe off, each request is processed.');
+    }
+
+    /**
+     * Regression: identical consecutive keystrokes at different form steps must
+     * not be treated as duplicates. The dedupe key includes the session position
+     * (step / form field index / state / menu), so the same "1" pressed at the
+     * next field lands at a different position and a different key. Before the
+     * fix the key ignored position and the second "1" was served the first
+     * step's cached response, so the form never advanced past the first field.
+     * (The provider still sends the accumulated trail "1" then "1*1"; only the
+     * parsed segment "1" reaches processing.)
+     */
+    public function test_same_input_at_consecutive_steps_is_not_deduped(): void
+    {
+        $builder = new FlexibleFormBuilder('Signup');
+        $builder->textField('first', 'Enter first:');
+        $builder->textField('second', 'Enter second:');
+        $menu = $builder->build();
+
+        $tester = UssdTester::fake(['default_menu' => 'signup'])
+            ->register('signup', $menu);
+
+        $tester->dial();                 // shows the first field
+        $tester->send('1');              // trail "1": stores first, shows second field
+        $this->assertTrue($tester->response()->isContinue());
+        $this->assertStringContainsString('second', $tester->message());
+
+        $tester->send('1*1');            // trail "1*1": parses to "1", stores second, completes
+        $this->assertTrue(
+            $tester->response()->isEnd(),
+            'The second "1" is a distinct step, not a retry; the form must advance and complete.'
+        );
     }
 }

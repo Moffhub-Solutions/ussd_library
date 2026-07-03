@@ -189,7 +189,9 @@ class FormMenu extends UssdMenu
 
             return $paginatedMenu->process($input, $session);
 
-        } catch (Exception) {
+        } catch (\Throwable $e) {
+            $this->reportInteractiveError($e, 'paginated field "'.$field->name.'"');
+
             $message = "Error processing field options. Please try again.\n\n".$field->prompt;
             $message = $this->addGlobalNavigation($message, $session);
 
@@ -211,7 +213,9 @@ class FormMenu extends UssdMenu
 
             return UssdResponse::end('Form completed successfully!');
 
-        } catch (Exception) {
+        } catch (\Throwable $e) {
+            $this->reportInteractiveError($e, 'form completion (onComplete)');
+
             return UssdResponse::end('Form completion error. Please try again.');
         }
     }

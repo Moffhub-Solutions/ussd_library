@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Moffhub\Ussd\Actions;
 
 use Closure;
-use Exception;
+use Illuminate\Support\Facades\Log;
 use Moffhub\Ussd\Interfaces\ActionInterface;
 use Moffhub\Ussd\UssdFramework;
 use Moffhub\Ussd\UssdResponse;
@@ -47,7 +47,19 @@ class SaveDataAction implements ActionInterface
 
             return UssdResponse::end($this->errorMessage);
 
-        } catch (Exception) {
+        } catch (\Throwable $e) {
+            // Do not let a genuine save failure (DB error, callback bug, arg-order
+            // mismatch) masquerade as a benign "couldn't save". Log it, and in
+            // debug rethrow so it surfaces instead of being swallowed.
+            Log::error('USSD: SaveDataAction callback failed', [
+                'error' => $e->getMessage(),
+                'exception' => $e::class,
+            ]);
+
+            if ($framework->getConfig('debug', false)) {
+                throw $e;
+            }
+
             return UssdResponse::end($this->errorMessage);
         }
     }

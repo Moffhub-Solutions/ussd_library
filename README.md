@@ -75,7 +75,7 @@ class UssdController extends Controller
             '2' => 'Send Money',
             '3' => 'Buy Airtime',
         ], [
-            '1' => function ($session, $framework) {
+            '1' => function ($input, $session, $framework) {
                 return $framework->navigateToMenuWithResponse('balance');
             },
         ]);
@@ -86,7 +86,7 @@ class UssdController extends Controller
         return new SimpleMenu('Your balance is KES 1,500.00', [
             '0' => 'Back to Main Menu',
         ], [
-            '0' => function ($session, $framework) {
+            '0' => function ($input, $session, $framework) {
                 return $framework->navigateToMenuWithResponse('main');
             },
         ]);
@@ -115,7 +115,7 @@ $menu = new SimpleMenu('Main Menu', [
     '2' => 'Option Two',
     '3' => 'Option Three',
 ], [
-    '1' => function ($session, $framework) {
+    '1' => function ($input, $session, $framework) {
         return UssdResponse::end('You selected option one!');
     },
 ]);
@@ -157,7 +157,7 @@ use Moffhub\Ussd\Menus\PaginatedMenu;
 
 $menu = new PaginatedMenu('Select Product', $products, [
     'items_per_page' => 5,
-    'item_formatter' => fn($item) => $item['name'] . ' - KES ' . $item['price'],
+    'item_formatter' => fn($key, $item) => $item['name'] . ' - KES ' . $item['price'],
 ]);
 ```
 
@@ -194,7 +194,7 @@ $wizard->addStep('amount', new SimpleMenu('Enter amount:', ['*' => 'Cancel']));
 $wizard->addStep('recipient', new SimpleMenu('Enter recipient:', ['*' => 'Cancel']));
 $wizard->addStep('confirm', new SimpleMenu('Confirm transfer?', ['1' => 'Yes', '2' => 'No']));
 
-$wizard->setCompletionHandler(function ($session, $data) {
+$wizard->setOnComplete(function ($session, $framework) {
     // Process the transfer
     return UssdResponse::end('Transfer successful!');
 });
@@ -209,7 +209,7 @@ use Moffhub\Ussd\Builders\MenuBuilder;
 
 $menu = (new MenuBuilder('main_menu'))
     ->title('Welcome')
-    ->option('1', 'Check Balance', fn($s, $f) => $f->navigateToMenuWithResponse('balance'))
+    ->option('1', 'Check Balance', fn($input, $s, $f) => $f->navigateToMenuWithResponse('balance'))
     ->option('2', 'Send Money')
     ->option('3', 'Exit', fn() => UssdResponse::end('Goodbye!'))
     ->build();
@@ -370,7 +370,7 @@ $provider = new ApiDataProvider(
 ```php
 // In your menu actions
 $menu = new SimpleMenu('Menu', ['1' => 'Action'], [
-    '1' => function ($session, $framework) {
+    '1' => function ($input, $session, $framework) {
         // Get session data
         $name = $session->get('name');
         $step = $session->get('step', 0);
