@@ -85,7 +85,13 @@ class PaginationSnapshotTest extends TestCase
 
             public function getData(mixed $session = null, array $filters = []): array
             {
-                return $this->data;
+                return [
+                    'data' => array_values($this->data),
+                    'total' => count($this->data),
+                    'current_page' => 1,
+                    'per_page' => count($this->data),
+                    'has_more' => false,
+                ];
             }
 
             public function getItem(string|int $id, mixed $session): mixed
@@ -95,7 +101,10 @@ class PaginationSnapshotTest extends TestCase
 
             public function search(string $query, mixed $session, array $fields = []): array
             {
-                return $this->data;
+                return [
+                    'data' => array_values($this->data),
+                    'total' => count($this->data),
+                ];
             }
         };
 
