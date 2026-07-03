@@ -792,9 +792,9 @@ class UssdMenu implements UssdMenuInterface
 
     /**
      * @param  array<int, string>|null  $searchFields  Columns to search; defaults to the
-     *                                                  menu-level config. Field-driven callers
-     *                                                  pass the field's own search fields so a
-     *                                                  per-field `search_fields` is honored.
+     *                                                 menu-level config. Field-driven callers
+     *                                                 pass the field's own search fields so a
+     *                                                 per-field `search_fields` is honored.
      */
     protected function filterData(array $data, string $query, ?array $searchFields = null): array
     {
