@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Moffhub\Ussd\Tests\Feature;
 
 use Moffhub\Ussd\Builders\FlexibleFormBuilder;
+use Moffhub\Ussd\Menus\PaginatedMenu;
 use Moffhub\Ussd\Menus\SimpleMenu;
 use Moffhub\Ussd\Testing\UssdTester;
 use Moffhub\Ussd\Tests\TestCase;
@@ -89,5 +90,59 @@ class RequestDeduplicationTest extends TestCase
             $tester->response()->isEnd(),
             'The second "1" is a distinct step, not a retry; the form must advance and complete.'
         );
+    }
+
+    /**
+     * Regression: pressing "next page" twice must page twice. Paging changes
+     * neither the step, the field index nor the menu, so before the fix the
+     * second "00" fingerprinted identically to the first, was taken for a
+     * gateway retry, and was served page two from cache. The list could never
+     * advance past page two however many times the caller pressed next.
+     */
+    public function test_repeated_next_page_keeps_advancing_a_list(): void
+    {
+        $items = [];
+        for ($index = 1; $index <= 12; $index++) {
+            $items[$index] = ['name' => sprintf('Item %02d', $index)];
+        }
+
+        $tester = UssdTester::fake(['default_menu' => 'list'])
+            ->register('list', new PaginatedMenu('Items', $items, ['max_sms_length' => 120]));
+
+        $tester->dial();
+        $this->assertStringContainsString('Page 1 of', $tester->message());
+
+        $tester->send('00');
+        $this->assertStringContainsString('Page 2 of', $tester->message());
+
+        $tester->send('00');
+        $this->assertStringContainsString('Page 3 of', $tester->message());
+    }
+
+    /**
+     * The same regression inside a form's option list, which pages via its own
+     * form state rather than the menu's.
+     */
+    public function test_repeated_next_page_keeps_advancing_a_form_option_list(): void
+    {
+        $options = [];
+        for ($index = 1; $index <= 12; $index++) {
+            $options[$index] = ['id' => $index, 'name' => sprintf('County %02d', $index)];
+        }
+
+        $builder = new FlexibleFormBuilder('Signup');
+        $builder->paginatedField('county', 'Select your County:', $options, ['items_per_page' => 5]);
+
+        $tester = UssdTester::fake(['default_menu' => 'signup'])
+            ->register('signup', $builder->build());
+
+        $tester->dial();
+        $this->assertStringContainsString('Page 1 of 3', $tester->message());
+
+        $tester->send('00');
+        $this->assertStringContainsString('Page 2 of 3', $tester->message());
+
+        $tester->send('00');
+        $this->assertStringContainsString('Page 3 of 3', $tester->message());
     }
 }

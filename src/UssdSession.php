@@ -123,7 +123,11 @@ class UssdSession
     protected function getDefaultSessionData(): array
     {
         return [
-            'current_menu' => null,
+            // Start on the default menu rather than "no menu at all". With a null
+            // current_menu, setCurrentMenu() has no previous menu to push, so the
+            // first hop off the entry menu records no history: Back is then hidden
+            // on every first-level screen and cannot take the caller back there.
+            'current_menu' => $this->config['default_menu'] ?? 'main',
             'menu_history' => [],
             'form_data' => [],
             'menu_data' => [],

@@ -41,11 +41,33 @@ class UssdSessionTest extends TestCase
         $this->assertEquals(0, $session->getStep());
     }
 
-    public function test_session_initializes_with_empty_current_menu(): void
+    public function test_session_initializes_on_the_default_menu(): void
     {
-        $session = new UssdSession('+254712345678', 'session_abc');
+        // Not null: a session that starts on "no menu" records no history when
+        // it first navigates away, which hides Back on every first-level screen.
+        $session = new UssdSession('+254712345678', 'session_abc', ['default_menu' => 'main']);
 
-        $this->assertNull($session->getCurrentMenu());
+        $this->assertSame('main', $session->getCurrentMenu());
+    }
+
+    public function test_session_initializes_on_the_configured_default_menu(): void
+    {
+        $session = new UssdSession('+254712345678', 'session_abc', ['default_menu' => 'account']);
+
+        $this->assertSame('account', $session->getCurrentMenu());
+    }
+
+    public function test_first_navigation_off_the_entry_menu_records_history(): void
+    {
+        // The regression this guards: with no entry menu recorded, goBack() had
+        // nothing to pop and Back could never return the caller to the entry menu.
+        $session = new UssdSession('+254712345678', 'session_abc', ['default_menu' => 'main']);
+
+        $session->setCurrentMenu('services');
+
+        $this->assertTrue($session->canGoBack());
+        $this->assertTrue($session->goBack());
+        $this->assertSame('main', $session->getCurrentMenu());
     }
 
     // ==================== Session Status Management ====================
@@ -281,7 +303,8 @@ class UssdSessionTest extends TestCase
 
         $this->session->reset();
 
-        $this->assertNull($this->session->getCurrentMenu());
+        // Reset returns the caller to the entry menu, not to "no menu at all".
+        $this->assertSame('main', $this->session->getCurrentMenu());
         $this->assertEquals(0, $this->session->getStep());
     }
 

@@ -253,15 +253,24 @@ class UssdFramework
 
     /**
      * A stable fingerprint of where the session currently is: menu step, form
-     * field index, form state and current menu. Two requests at the same
-     * position with the same input are a retry; the next step changes at least
-     * one of these components.
+     * field index, form state, pagination/search position and current menu. Two
+     * requests at the same position with the same input are a retry; the next
+     * step changes at least one of these components.
+     *
+     * Paging and searching move the caller without touching the step, the field
+     * index or the menu, so they belong in the fingerprint too. Leave them out
+     * and a legitimate second "next page" looks like a gateway retry of the
+     * first: it is served the previous page from cache, and the list can never
+     * advance past page two.
      */
     protected function sessionPosition(UssdSession $session): string
     {
         return $session->getStep().'|'
             .(string) $session->getFormData('_form_field_index', '').'|'
             .(string) $session->getFormData('_form_state', '').'|'
+            .(string) $session->getFormData('_pagination_page', '').'|'
+            .(string) $session->getFormData('_search_query', '').'|'
+            .(string) $session->getMenuData('current_page', '').'|'
             .(string) ($session->getCurrentMenu() ?? '');
     }
 

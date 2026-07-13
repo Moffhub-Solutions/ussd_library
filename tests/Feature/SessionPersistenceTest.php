@@ -224,7 +224,8 @@ class SessionPersistenceTest extends TestCase
 
         $session->reset();
 
-        $this->assertNull($session->getCurrentMenu());
+        // Home drops the caller back on the entry menu with a clean slate.
+        $this->assertSame('main', $session->getCurrentMenu());
         $this->assertEquals(0, $session->getStep());
         $this->assertEmpty($session->getFormData());
     }
