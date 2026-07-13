@@ -865,7 +865,7 @@ class UssdMenu implements UssdMenuInterface
         $navCommands = array_filter([
             $navigation['back'] ?? '99',
             $navigation['home'] ?? '0',
-        ], static fn ($command): bool => $command !== null && $command !== '');
+        ], static fn ($command): bool => $command !== '');
 
         if (in_array(trim($input), $navCommands)) {
             return trim($input);
