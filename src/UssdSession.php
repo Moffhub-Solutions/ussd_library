@@ -129,9 +129,9 @@ class UssdSession
             'menu_data' => [],
             'step' => 0,
             'user_data' => [],
-            'created_at' => Carbon::now(),
-            'updated_at' => Carbon::now(),
-            'last_access' => Carbon::now(),
+            'created_at' => Carbon::now()->toIso8601String(),
+            'updated_at' => Carbon::now()->toIso8601String(),
+            'last_access' => Carbon::now()->toIso8601String(),
             'access_count' => 0,
             'session_flags' => [],
 
@@ -184,7 +184,7 @@ class UssdSession
     public function set(string $key, mixed $value): void
     {
         data_set($this->data, $key, $value);
-        $this->data['updated_at'] = Carbon::now();
+        $this->data['updated_at'] = Carbon::now()->toIso8601String();
     }
 
     public function getCurrentMenu(): ?string
@@ -772,7 +772,7 @@ class UssdSession
             $metadata['status'] = $this->status;
             $this->set('session_metadata', $metadata);
 
-            $this->data['updated_at'] = Carbon::now();
+            $this->data['updated_at'] = Carbon::now()->toIso8601String();
             $this->data['last_access'] = Carbon::now();
 
             $timeout = (int) ($this->config['session']['timeout'] ?? $this->config['session_timeout'] ?? 300);

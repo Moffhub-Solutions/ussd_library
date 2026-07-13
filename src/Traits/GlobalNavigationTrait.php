@@ -111,7 +111,9 @@ trait GlobalNavigationTrait
         $currentMenu = $session->getCurrentMenu();
         $defaultMenu = $this->config['default_menu'] ?? 'main';
 
-        return $currentMenu !== $defaultMenu;
+        // On the entry menu current_menu is null/empty (nothing to go home to),
+        // so only offer "Home" once the caller has moved off the default menu.
+        return $currentMenu !== null && $currentMenu !== '' && $currentMenu !== $defaultMenu;
     }
 
     protected function processGlobalNavigation(string $input, UssdSession $session): ?UssdResponse

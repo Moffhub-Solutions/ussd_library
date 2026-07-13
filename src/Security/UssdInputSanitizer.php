@@ -138,7 +138,7 @@ class UssdInputSanitizer implements InputSanitizerInterface
 
     protected function sanitizePhone(string $input): string
     {
-        $input = preg_replace('/[^0-9+]/', '', $input) ?: '';
+        $input = preg_replace('/[^0-9+]/', '', $input) ?? '';
 
         if (preg_match('/^0([7]\d{8})$/', $input, $matches)) {
             $input = '254'.$matches[1];
@@ -167,7 +167,7 @@ class UssdInputSanitizer implements InputSanitizerInterface
 
     protected function sanitizeAmount(string $input): string
     {
-        $input = preg_replace('/[^\d\.]/', '', $input) ?: '';
+        $input = preg_replace('/[^\d\.]/', '', $input) ?? '';
 
         if (substr_count($input, '.') > 1) {
             $parts = explode('.', $input);
@@ -197,9 +197,9 @@ class UssdInputSanitizer implements InputSanitizerInterface
 
     protected function sanitizeName(string $input): string
     {
-        $input = preg_replace('/[^a-zA-Z\s\'\-]/', '', $input) ?: '';
+        $input = preg_replace('/[^a-zA-Z\s\'\-]/', '', $input) ?? '';
 
-        $input = preg_replace('/\s+/', ' ', $input) ?: '';
+        $input = preg_replace('/\s+/', ' ', $input) ?? '';
 
         return ucwords(strtolower($input));
     }
@@ -209,7 +209,7 @@ class UssdInputSanitizer implements InputSanitizerInterface
         $sanitized = trim($input);
 
         $sanitized = str_replace("\0", '', $sanitized);
-        $sanitized = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $sanitized) ?: '';
+        $sanitized = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $sanitized) ?? '';
 
         if (strlen($sanitized) > 100) {
             return substr($sanitized, 0, 100);
@@ -256,14 +256,14 @@ class UssdInputSanitizer implements InputSanitizerInterface
 
     protected function sanitizeSearch(string $input): string
     {
-        $input = preg_replace('/[^a-zA-Z0-9\s\.\,\-]/', '', $input) ?: '';
+        $input = preg_replace('/[^a-zA-Z0-9\s\.\,\-]/', '', $input) ?? '';
 
-        return preg_replace('/\s+/', ' ', $input) ?: '';
+        return preg_replace('/\s+/', ' ', $input) ?? '';
     }
 
     protected function sanitizeGeneral(string $input): string
     {
-        return preg_replace('/[^a-zA-Z0-9\s\.\,\-]/', '', $input) ?: '';
+        return preg_replace('/[^a-zA-Z0-9\s\.\,\-]/', '', $input) ?? '';
     }
 
     protected function initializePatterns(): void

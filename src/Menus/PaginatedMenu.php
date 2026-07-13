@@ -37,7 +37,7 @@ class PaginatedMenu extends UssdMenu
             'reserve_chars' => 50,
             'item_formatter' => $this->defaultItemFormatter(...),
             'item_action' => null,
-            'show_navigation_help' => true,
+            'show_navigation_help' => false,
             'empty_message' => 'No items found.',
             'filters' => [],
         ];
@@ -93,6 +93,23 @@ class PaginatedMenu extends UssdMenu
         return "$key. ".json_encode($item);
     }
 
+    /**
+     * Route input through this list's own selection/pagination handling rather
+     * than the base menu's type dispatch (which, with no explicit type, falls
+     * back to simple-menu handling and rejects every selection as invalid).
+     */
+    #[\Override]
+    public function process(string $input, UssdSession $session): UssdResponse
+    {
+        $input = trim($input);
+
+        if ($input === '') {
+            return $this->showInitial($session);
+        }
+
+        return $this->processStep($input, $session->getStep(), $session);
+    }
+
     protected function processStep(string $input, int $step, UssdSession $session): UssdResponse
     {
         $input = trim($input);
@@ -110,7 +127,7 @@ class PaginatedMenu extends UssdMenu
             $this->getNavigationCommand('next'),
             $this->getNavigationCommand('back'),
             $this->getNavigationCommand('home'),
-        ]);
+        ], static fn ($command): bool => $command !== null && $command !== '');
 
         return in_array($input, $navCommands, true);
     }
@@ -190,17 +207,31 @@ class PaginatedMenu extends UssdMenu
 
     protected function getData(UssdSession $session): array
     {
+        $result = [];
+
         if ($this->dataProvider instanceof DataProviderInterface) {
-            return $this->dataProvider->getData($session, $this->filters);
-        }
-        if (is_callable($this->dataProvider)) {
-            return call_user_func($this->dataProvider, $session, $this->filters);
-        }
-        if (is_array($this->dataProvider)) {
-            return $this->dataProvider;
+            $result = $this->dataProvider->getData($session, $this->filters);
+        } elseif (is_callable($this->dataProvider)) {
+            $result = call_user_func($this->dataProvider, $session, $this->filters);
+        } elseif (is_array($this->dataProvider)) {
+            $result = $this->dataProvider;
         }
 
-        return [];
+        // Data providers return a paginated envelope {data, total, ...}; the
+        // menu displays the item list, so unwrap it. A plain item array (no
+        // `data` key) is returned as-is.
+        $items = $result;
+
+        if (is_array($result) && isset($result['data']) && is_array($result['data'])) {
+            $items = $result['data'];
+        }
+
+        if (! is_array($items) || $items === []) {
+            return [];
+        }
+
+        // Re-key from 1 so the caller presses 1, 2, 3 rather than 0, 1, 2.
+        return array_combine(range(1, count($items)), array_values($items));
     }
 
     protected function getNavigationOptions(?int $currentPage = null, ?int $totalPages = null): string

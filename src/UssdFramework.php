@@ -431,6 +431,19 @@ class UssdFramework
         return UssdConfig::fromArray($this->config);
     }
 
+    /**
+     * The menu a session starts on. Callers that register menus after the
+     * framework is constructed (a flow definition names its own entry menu)
+     * need to point the framework at it, otherwise every session begins at the
+     * literal default of 'main'.
+     */
+    public function setDefaultMenu(string $menuName): static
+    {
+        $this->config['default_menu'] = $menuName;
+
+        return $this;
+    }
+
     public function getCurrentMenuPublic(): UssdMenuInterface
     {
         return $this->getCurrentMenu();
@@ -1044,14 +1057,14 @@ class UssdFramework
             return $this->processContinuationChoice($text);
         }
 
-        if ($text === '' || $text === '0') {
+        if ($text === '') {
             $currentMenu = $this->getCurrentMenu();
 
             return $currentMenu->process('', $session);
         }
 
         $text = trim($text);
-        if ($text === '' || $text === '0') {
+        if ($text === '') {
             $currentMenu = $this->getCurrentMenu();
 
             return $currentMenu->process('', $session);
@@ -1212,7 +1225,7 @@ class UssdFramework
         $navigation = $this->config['navigation'] ?? [];
         $navCommand = $this->extractNavigationCommand($input);
 
-        if (! $navCommand) {
+        if ($navCommand === null) {
             return null;
         }
 
@@ -1229,7 +1242,7 @@ class UssdFramework
         $navCommands = array_filter([
             $navigation['back'] ?? '99',
             $navigation['home'] ?? '0',
-        ]);
+        ], static fn ($command): bool => $command !== null && $command !== '');
 
         if (in_array($input, $navCommands)) {
             return $input;

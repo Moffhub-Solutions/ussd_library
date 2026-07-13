@@ -848,7 +848,7 @@ class UssdMenu implements UssdMenuInterface
         $navigation = $this->config['navigation'] ?? [];
         $navCommand = $this->findNavigationCommand($input);
 
-        if (! $navCommand) {
+        if ($navCommand === null) {
             return null;
         }
 
@@ -865,7 +865,7 @@ class UssdMenu implements UssdMenuInterface
         $navCommands = array_filter([
             $navigation['back'] ?? '99',
             $navigation['home'] ?? '0',
-        ]);
+        ], static fn ($command): bool => $command !== null && $command !== '');
 
         if (in_array(trim($input), $navCommands)) {
             return trim($input);
@@ -1163,6 +1163,10 @@ class UssdMenu implements UssdMenuInterface
 
     protected function shouldShowHome(UssdSession $session): bool
     {
-        return true; // Always show home option
+        $currentMenu = $session->getCurrentMenu();
+        $defaultMenu = $this->config['default_menu'] ?? 'main';
+
+        // No "Home" on the entry menu (current_menu is null there); it goes nowhere.
+        return $currentMenu !== null && $currentMenu !== '' && $currentMenu !== $defaultMenu;
     }
 }

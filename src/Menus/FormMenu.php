@@ -40,6 +40,29 @@ class FormMenu extends UssdMenu
         return $this;
     }
 
+    /**
+     * Route input through this form's own step-based collection rather than the
+     * base menu's type dispatch (which, without an explicit 'form' type, falls
+     * back to simple-menu handling and rejects every answer as an invalid option).
+     */
+    #[\Override]
+    public function process(string $input, UssdSession $session): UssdResponse
+    {
+        $navResponse = $this->handleGlobalNavigation($input, $session);
+
+        if ($navResponse instanceof UssdResponse) {
+            return $navResponse;
+        }
+
+        $step = $session->getStep();
+
+        if (($input === '' || $input === '0') && $step === 0) {
+            return $this->showInitial($session);
+        }
+
+        return $this->processStep($input, $step, $session);
+    }
+
     #[\Override]
     protected function showInitial(UssdSession $session): UssdResponse
     {
@@ -62,7 +85,7 @@ class FormMenu extends UssdMenu
         $navCommands = array_filter([
             $navigation['back'] ?? '99',
             $navigation['home'] ?? '0',
-        ]);
+        ], static fn ($command): bool => $command !== null && $command !== '');
 
         if (in_array($input, $navCommands)) {
             $navResponse = $this->processGlobalNavigation($input, $session);
@@ -133,7 +156,11 @@ class FormMenu extends UssdMenu
         $nextFieldKey = $fieldKeys[$nextStep];
         $nextField = $this->fields[$nextFieldKey];
 
-        $message = $nextField->prompt;
+        // Keep the form title on every step, not just the first, so the caller
+        // always sees which form they are filling in.
+        $message = $this->title !== '' && $this->title !== '0'
+            ? $this->title."\n\n".$nextField->prompt
+            : $nextField->prompt;
         $message = $this->addGlobalNavigation($message, $session);
 
         return UssdResponse::continue($message);
