@@ -33,10 +33,34 @@ class GatewaySignatureVerifier
     {
         return $this->verify(
             $request->getContent(),
-            $request->header(self::TIMESTAMP_HEADER),
-            $request->header(self::SIGNATURE_HEADER),
+            $this->singleHeader($request, self::TIMESTAMP_HEADER),
+            $this->singleHeader($request, self::SIGNATURE_HEADER),
             $now,
         );
+    }
+
+    /**
+     * The one value of a header, or null unless there is exactly one.
+     *
+     * `Request::header()` hands back the first value when a header is sent more
+     * than once, which would let a request carrying both a genuine signature
+     * and a forged one verify on whichever arrived first. A request that names
+     * its own signature twice is ambiguous rather than signed, so it is
+     * refused instead of resolved.
+     *
+     * @return non-empty-string|null
+     */
+    protected function singleHeader(Request $request, string $name): ?string
+    {
+        $values = $request->headers->all($name);
+
+        if (count($values) !== 1) {
+            return null;
+        }
+
+        $value = reset($values);
+
+        return is_string($value) && $value !== '' ? $value : null;
     }
 
     public function verify(string $body, ?string $timestamp, ?string $signature, ?int $now = null): bool

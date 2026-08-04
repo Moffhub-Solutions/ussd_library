@@ -85,4 +85,24 @@ class GatewaySignatureVerifierTest extends TestCase
 
         $this->assertTrue($verifier->verifyRequest($request, $timestamp));
     }
+
+    public function test_a_repeated_signature_header_is_refused_rather_than_resolved(): void
+    {
+        $verifier = new GatewaySignatureVerifier(self::SECRET);
+        $timestamp = 1_800_000_000;
+
+        $request = Request::create('/ussd', 'POST', [], [], [], [
+            'HTTP_'.str_replace('-', '_', strtoupper(GatewaySignatureVerifier::TIMESTAMP_HEADER)) => (string) $timestamp,
+        ], self::BODY);
+
+        // Two signatures, one of them genuine. Laravel's header() hands back
+        // the first, so without an explicit count this would verify on the
+        // attacker's ordering. An ambiguous request is not a signed one.
+        $request->headers->set(GatewaySignatureVerifier::SIGNATURE_HEADER, [
+            $verifier->sign(self::BODY, $timestamp),
+            'deadbeef',
+        ]);
+
+        $this->assertFalse($verifier->verifyRequest($request, $timestamp));
+    }
 }
