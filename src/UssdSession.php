@@ -74,7 +74,7 @@ class UssdSession
             $this->config = $config;
         }
 
-        $this->cacheKey = ($this->config['session_prefix'] ?? 'ussd_session_').$this->phoneNumber;
+        $this->cacheKey = ($this->config['session_prefix'] ?? 'ussd_session_').$this->stateKey();
         $this->lastAccessTime = Carbon::now();
 
         // Default to the cache-backed store; an app can bind its own
@@ -85,6 +85,22 @@ class UssdSession
             : new CacheSessionStore;
 
         $this->loadOrInitializeSession();
+    }
+
+    /**
+     * What live session state is stored under.
+     *
+     * Defaults to the phone number, which is right for a service that owns its
+     * whole short code. A host serving several tenants behind ONE code must
+     * pass an explicit `session_key` in config (for example
+     * "{tenant}:{providerSessionId}"), otherwise the same subscriber dialling
+     * two tenants resumes the wrong one's session.
+     */
+    protected function stateKey(): string
+    {
+        $explicit = $this->config['session_key'] ?? null;
+
+        return is_string($explicit) && $explicit !== '' ? $explicit : $this->phoneNumber;
     }
 
     /**
@@ -801,8 +817,24 @@ class UssdSession
         }
     }
 
+    /**
+     * Mirror the session into `ussd_user_sessions`.
+     *
+     * Honours the same `database` config the rest of the package does. Without
+     * this check a host that has turned the database layer off, or has simply
+     * not published these migrations, still gets a write attempt on EVERY
+     * session save: a wasted round trip per leg, and on Postgres a failed
+     * statement that poisons any transaction the caller is inside. The failure
+     * is caught below, so it is invisible until it breaks something else.
+     */
     protected function saveToUserSessionsTable(): void
     {
+        $database = $this->config['database'] ?? [];
+
+        if (! ($database['enabled'] ?? true) || ! ($database['save_sessions'] ?? true)) {
+            return;
+        }
+
         try {
             $userJourney = $this->extractUserJourney();
             $totalInteractions = $this->get('session_metadata.access_count', 0);

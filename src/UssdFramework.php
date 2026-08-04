@@ -121,6 +121,11 @@ class UssdFramework
             // Basic framework config
             'session_timeout' => 300,
             'session_prefix' => 'ussd_session_',
+
+            // Live session state is keyed by phone number unless a host sets
+            // this. Multi-tenant hosts (many services behind one short code)
+            // MUST set it, for example "{tenantId}:{providerSessionId}".
+            'session_key' => null,
             'default_menu' => 'main',
             'sms_length' => 160,
             'reserve_chars' => 50,
@@ -730,9 +735,30 @@ class UssdFramework
         return uniqid('ussd_', true);
     }
 
+    /**
+     * Where this request's live session state lives. Mirrors
+     * UssdSession::stateKey(): an explicit `session_key` wins over the phone
+     * number, which is what lets several tenants share one short code without
+     * their sessions colliding.
+     */
+    protected function sessionCacheKey(string $phoneNumber): string
+    {
+        $prefix = $this->config['session_prefix'] ?? 'ussd_session_';
+        $explicit = $this->config['session_key'] ?? null;
+
+        return $prefix.(is_string($explicit) && $explicit !== '' ? $explicit : $phoneNumber);
+    }
+
+    protected function hasExplicitSessionKey(): bool
+    {
+        $explicit = $this->config['session_key'] ?? null;
+
+        return is_string($explicit) && $explicit !== '';
+    }
+
     protected function retrieveSession(string $phoneNumber): ?array
     {
-        $cacheKey = ($this->config['session_prefix'] ?? 'ussd_session_').$phoneNumber;
+        $cacheKey = $this->sessionCacheKey($phoneNumber);
 
         // 1. Try cache first (primary)
         $sessionData = null;
@@ -743,8 +769,11 @@ class UssdFramework
             }
         }
 
-        // 2. Fall back to database if cache miss
-        if ($sessionData === null && $this->databaseService instanceof UssdDatabaseService) {
+        // 2. Fall back to database if cache miss. The database fallback can
+        // only match on the phone number, so it is skipped when an explicit
+        // session key is in play: resuming by phone alone would hand a
+        // multi-tenant host the wrong tenant's session.
+        if ($sessionData === null && ! $this->hasExplicitSessionKey() && $this->databaseService instanceof UssdDatabaseService) {
             try {
                 $dbSession = DB::table('ussd_user_sessions')
                     ->where('phone_number', $phoneNumber)
