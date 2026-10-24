@@ -1300,10 +1300,11 @@ class UssdFramework
 
     protected function handleBackNavigation(UssdSession $session): UssdResponse
     {
-        // Back inside a form is back one question; only from the first one does it leave the form.
+        // Back inside a form is the form's to answer: one question back, or one page back in a long list, and only
+        // from the first question does it leave the form (which the form itself does through goBack()).
         $inForm = $this->getCurrentMenu();
 
-        if ($inForm instanceof FormMenu && $session->getStep() > 0) {
+        if ($inForm instanceof FormMenu) {
             return $inForm->process((string) ($this->config['navigation']['back'] ?? '99'), $session);
         }
 
