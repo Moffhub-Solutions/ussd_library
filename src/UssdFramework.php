@@ -27,6 +27,7 @@ use Moffhub\Ussd\Interfaces\MetricsRecorderInterface;
 use Moffhub\Ussd\Interfaces\RateLimiterInterface;
 use Moffhub\Ussd\Interfaces\UssdMenuInterface;
 use Moffhub\Ussd\Interfaces\UssdProviderInterface;
+use Moffhub\Ussd\Menus\FormMenu;
 use Moffhub\Ussd\Metrics\NullMetricsRecorder;
 use Moffhub\Ussd\Providers\ProviderFactory;
 use Moffhub\Ussd\Security\UssdAuditLogger;
@@ -1299,6 +1300,13 @@ class UssdFramework
 
     protected function handleBackNavigation(UssdSession $session): UssdResponse
     {
+        // Back inside a form is back one question; only from the first one does it leave the form.
+        $inForm = $this->getCurrentMenu();
+
+        if ($inForm instanceof FormMenu && $session->getStep() > 0) {
+            return $inForm->process((string) ($this->config['navigation']['back'] ?? '99'), $session);
+        }
+
         $currentMenu = $session->getCurrentMenu();
         $defaultMenu = $this->config['default_menu'];
 
