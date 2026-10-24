@@ -28,6 +28,7 @@ use Moffhub\Ussd\Interfaces\RateLimiterInterface;
 use Moffhub\Ussd\Interfaces\UssdMenuInterface;
 use Moffhub\Ussd\Interfaces\UssdProviderInterface;
 use Moffhub\Ussd\Menus\FormMenu;
+use Moffhub\Ussd\Menus\UssdMenu;
 use Moffhub\Ussd\Metrics\NullMetricsRecorder;
 use Moffhub\Ussd\Providers\ProviderFactory;
 use Moffhub\Ussd\Security\UssdAuditLogger;
@@ -1304,7 +1305,7 @@ class UssdFramework
         // from the first question does it leave the form (which the form itself does through goBack()).
         $inForm = $this->getCurrentMenu();
 
-        if ($inForm instanceof FormMenu) {
+        if ($inForm instanceof FormMenu || ($inForm instanceof UssdMenu && $inForm->isForm())) {
             return $inForm->process((string) ($this->config['navigation']['back'] ?? '99'), $session);
         }
 

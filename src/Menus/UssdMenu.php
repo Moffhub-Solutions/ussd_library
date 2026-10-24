@@ -899,9 +899,37 @@ class UssdMenu implements UssdMenuInterface
         return UssdResponse::continue('Cannot go back further.');
     }
 
+    /** Whether this menu is a form of any kind: back in one is a question back, not a menu back. */
+    public function isForm(): bool
+    {
+        return in_array($this->type, ['form', 'enhanced_form', 'flexible_form'], true);
+    }
+
     protected function handleFormBackNavigation(UssdSession $session): ?UssdResponse
     {
         $fieldIndex = $session->getFormData('_form_field_index', 0);
+        $fieldKeys = array_keys($this->fields);
+        $current = $this->fields[$fieldKeys[$fieldIndex] ?? ''] ?? null;
+
+        // In a long list, back first undoes the search, then goes to the page before.
+        if ($current instanceof FormField && $current->isPaginated() && $session->getFormData('_form_state') !== 'collecting') {
+            if ((string) $session->getFormData('_search_query', '') !== '') {
+                $session->setFormData('_search_query', '');
+                $session->setFormData('_pagination_page', 1);
+                $session->setFormData('_form_state', 'paginating');
+
+                return $this->showPaginatedFieldOptions($current, $session);
+            }
+
+            $page = (int) $session->getFormData('_pagination_page', 1);
+
+            if ($page > 1) {
+                $session->setFormData('_pagination_page', $page - 1);
+                $session->setFormData('_form_state', 'paginating');
+
+                return $this->showPaginatedFieldOptions($current, $session);
+            }
+        }
 
         if ($fieldIndex <= 0) {
             if ($this->framework && $this->framework->goBack()) {
@@ -913,8 +941,18 @@ class UssdMenu implements UssdMenuInterface
             return UssdResponse::continue('Cannot go back further.');
         }
 
-        $session->setFormData('_form_field_index', $fieldIndex - 1);
+        // The question before this one that was asked: those skipped for an earlier answer are passed over.
+        $previous = $fieldIndex - 1;
+        $answers = $session->getFormData();
+
+        while ($previous > 0 && ($field = $this->fields[$fieldKeys[$previous]] ?? null) instanceof FormField && ! $field->isVisible(is_array($answers) ? $answers : [])) {
+            $previous--;
+        }
+
+        $session->setFormData('_form_field_index', $previous);
         $session->setFormData('_form_state', 'collecting');
+        $session->setFormData('_pagination_page', 1);
+        $session->setFormData('_search_query', '');
 
         return $this->showCurrentField($session);
     }
