@@ -240,6 +240,11 @@ class UssdSession
 
     protected function addToMenuHistory(string $menuName): void
     {
+        // A step that only routes on (named by whoever built the flow) is not a place to come back to.
+        if (in_array($menuName, (array) ($this->config['passthrough_menus'] ?? []), true)) {
+            return;
+        }
+
         $history = $this->get('menu_history', []);
 
         $historyEntry = [
